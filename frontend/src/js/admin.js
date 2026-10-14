@@ -45,7 +45,7 @@
   document.addEventListener("click", () => (menu.hidden = true));
 
   function signOut() {
-    sessionStorage.removeItem("admin_token");
+    sessionStorage.clear();
     location.href = "index.html";
   }
   document.getElementById("signout").addEventListener("click", signOut);
@@ -68,5 +68,15 @@
     return data;
   }
 
-  window.admin = { api, money };
+  // Show the last saved data instantly, then refresh it from the server
+  async function apiCached(path, onData) {
+    const key = "cache:" + path;
+    try { const old = sessionStorage.getItem(key); if (old) onData(JSON.parse(old)); } catch (e) {}
+    const fresh = await api(path);
+    try { sessionStorage.setItem(key, JSON.stringify(fresh)); } catch (e) {}
+    onData(fresh);
+    return fresh;
+  }
+
+  window.admin = { api, apiCached, money };
 })();

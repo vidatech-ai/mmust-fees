@@ -9,10 +9,10 @@
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../src/css/main.css">
   <link rel="stylesheet" href="../src/css/student.css">
-  <link rel="stylesheet" href="../src/css/admin.css?v=4">
+  <link rel="stylesheet" href="../src/css/admin.css?v=6">
 </head>
 <body data-page="students">
-  <div id="content" class="ad-wrap wide">
+  <div id="content" class="adm-wrap wide">
     <h1 class="page-title">Students</h1>
     <p id="msg" class="fm-msg" role="alert" hidden></p>
 
@@ -133,7 +133,7 @@
     }
 
     async function load() {
-      try { students = await admin.api("/admin/students"); render(); }
+      try { await admin.apiCached("/admin/students", (d) => { students = d; render(); }); }
       catch (e) { show(e.message, false); }
     }
 

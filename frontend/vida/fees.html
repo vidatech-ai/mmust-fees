@@ -9,10 +9,10 @@
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../src/css/main.css">
   <link rel="stylesheet" href="../src/css/student.css">
-  <link rel="stylesheet" href="../src/css/admin.css?v=5">
+  <link rel="stylesheet" href="../src/css/admin.css?v=6">
 </head>
 <body data-page="fees">
-  <div id="content" class="ad-wrap wide">
+  <div id="content" class="adm-wrap wide">
     <h1 class="page-title">Fees</h1>
     <p id="msg" class="fm-msg" role="alert" hidden></p>
 
@@ -132,12 +132,14 @@
         body.appendChild(tr);
       });
     }
-    async function loadTerms() { terms = await admin.api("/admin/fees/terms"); renderTerms(); }
+    async function loadTerms() { await admin.apiCached("/admin/fees/terms", (d) => { terms = d; renderTerms(); }); }
     async function loadStudents() {
-      students = await admin.api("/admin/students");
-      const dl = $("stuList");
-      dl.textContent = "";
-      students.forEach((s) => { const o = document.createElement("option"); o.value = s.reg_number + " | " + s.name; dl.appendChild(o); });
+      await admin.apiCached("/admin/students", (d) => {
+        students = d;
+        const dl = $("stuList");
+        dl.textContent = "";
+        students.forEach((s) => { const o = document.createElement("option"); o.value = s.reg_number + " | " + s.name; dl.appendChild(o); });
+      });
     }
 
     $("termForm").addEventListener("submit", async (e) => {

@@ -10,7 +10,7 @@
 .err { background: #fdecec; color: #b42318; padding: 10px 12px; border-radius: 4px; font-size: .75rem; margin-bottom: 14px; }
 
 /* ---- Settings form ---- */
-.ad-wrap { padding: 22px 28px; max-width: 900px; }
+.adm-wrap { padding: 22px 28px; max-width: 900px; }
 .fm-card { background: #fff; border-radius: 6px; padding: 22px 24px; margin-bottom: 18px; box-shadow: 0 2px 8px rgba(20,30,60,.08); }
 .fm-card h2 { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
 .fm-card .fm-hint { font-size: 13px; color: var(--muted); margin-bottom: 14px; }
@@ -25,11 +25,11 @@
 .fm-msg[hidden] { display: none; }
 .fm-msg.ok { background: #e7f7ef; color: #0e7a56; }
 .fm-msg.bad { background: #fdecec; color: #b42318; }
-@media (max-width: 700px) { .fm-grid { grid-template-columns: 1fr; } .ad-wrap { padding: 14px 10px; } }
+@media (max-width: 700px) { .fm-grid { grid-template-columns: 1fr; } .adm-wrap { padding: 14px 10px; } }
 
 /* ---- Tables, dialogs (Students page) ---- */
 [hidden] { display: none !important; }
-.ad-wrap.wide { max-width: 1250px; }
+.adm-wrap.wide { max-width: 1250px; }
 .tb-bar { display: flex; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
 .tb-search { flex: 1; min-width: 220px; height: 42px; padding: 0 14px; font: inherit; font-size: 15px; border: 1px solid #c9cfdb; border-radius: 4px; outline: none; background: #fff; }
 .tb-search:focus { border-color: #1a73f5; }
