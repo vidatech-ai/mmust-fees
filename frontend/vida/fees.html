@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Admin | Fees</title>
+  <link rel="icon" href="../assets/logo.jpg">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../src/css/main.css">
+  <link rel="stylesheet" href="../src/css/student.css">
+  <link rel="stylesheet" href="../src/css/admin.css?v=5">
+</head>
+<body data-page="fees">
+  <div id="content" class="ad-wrap wide">
+    <h1 class="page-title">Fees</h1>
+    <p id="msg" class="fm-msg" role="alert" hidden></p>
+
+    <section class="fm-card">
+      <h2>Semester fee</h2>
+      <p class="fm-hint">Type the fee once. It is added as a "STANDARD INVOICE" to every active student who doesn't have one for that semester yet. Run it again later to invoice students you add afterwards. Students can pay any amount.</p>
+      <form id="termForm">
+        <div class="fm-grid">
+          <div class="fm-field"><label for="tYear">Academic year</label><input id="tYear" maxlength="9" placeholder="2026/2027" required></div>
+          <div class="fm-field"><label for="tSem">Semester</label><select id="tSem"><option value="1">Semester 1</option><option value="2">Semester 2</option></select></div>
+          <div class="fm-field"><label for="tAmount">Fee per student (KES)</label><input id="tAmount" type="number" min="1" step="0.01" required></div>
+          <div class="fm-field"><label for="tDate">Invoice date</label><input id="tDate" type="date" required></div>
+        </div>
+        <div style="margin-top:14px"><button type="submit" id="termBtn" class="fm-save">Save fee and invoice students</button></div>
+      </form>
+      <div class="tb-scroll" style="margin-top:16px">
+        <table class="tb"><thead><tr><th>Academic year</th><th>Semester</th><th class="num">Fee per student</th></tr></thead><tbody id="termRows"></tbody></table>
+      </div>
+    </section>
+
+    <section class="fm-card">
+      <h2>Student ledger</h2>
+      <p class="fm-hint">Find a student to add, edit or remove their invoices and payments. Changes show on the student's statement straight away and are recorded in the audit log.</p>
+      <div class="tb-bar">
+        <input id="stuSearch" class="tb-search" list="stuList" placeholder="Type a name or registration number, then choose from the list" autocomplete="off">
+        <datalist id="stuList"></datalist>
+      </div>
+
+      <div id="ledger" hidden>
+        <h3 id="lName" class="sub-h" style="margin-top:6px"></h3>
+        <div class="sum">
+          <div>Total charged<b id="lCharged"></b></div>
+          <div>Total paid<b id="lPaid"></b></div>
+          <div>Balance<b id="lBalance"></b></div>
+        </div>
+        <div class="btn-row">
+          <button type="button" id="addCharge" class="fm-save">Add invoice / adjustment</button>
+          <button type="button" id="addPay" class="fm-save green">Add payment</button>
+        </div>
+
+        <h4 class="sub-h">Invoices and adjustments</h4>
+        <div class="tb-scroll"><table class="tb">
+          <thead><tr><th>Date</th><th>Ref</th><th>Description</th><th>Semester</th><th class="num">Amount</th><th>Actions</th></tr></thead>
+          <tbody id="chargeRows"></tbody></table></div>
+
+        <h4 class="sub-h">Payments</h4>
+        <div class="tb-scroll"><table class="tb">
+          <thead><tr><th>Date</th><th>Ref</th><th>Description</th><th>Semester</th><th class="num">Amount</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody id="payRows"></tbody></table></div>
+      </div>
+    </section>
+
+    <dialog id="entryDlg" class="dlg">
+      <form id="entryForm">
+        <h2 id="entryTitle"></h2>
+        <p id="entryErr" class="fm-msg bad" hidden></p>
+        <div class="fm-grid">
+          <div class="fm-field"><label for="eTerm">Semester</label><select id="eTerm" required></select></div>
+          <div class="fm-field"><label for="eDate">Date</label><input id="eDate" type="date" required></div>
+          <div class="fm-field"><label for="eAmount">Amount (KES)</label><input id="eAmount" type="number" min="0.01" step="0.01" required></div>
+          <div class="fm-field"><label for="eRef">Reference (optional)</label><input id="eRef" maxlength="60" placeholder="leave blank to auto-generate"></div>
+          <div class="fm-field fm-full"><label for="eDesc">Description</label><input id="eDesc" maxlength="200"></div>
+        </div>
+        <div class="dlg-actions">
+          <button type="button" id="entryCancel" class="btn-ghost">Cancel</button>
+          <button type="submit" class="fm-save">Save</button>
+        </div>
+      </form>
+    </dialog>
+  </div>
+
+  <script src="../src/js/config.js"></script>
+  <script src="../src/js/admin.js"></script>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const msg = $("msg"), entryDlg = $("entryDlg");
+    let terms = [], students = [], ledger = null, studentId = null, entry = null;
+    let bankName = "";
+
+    function el(tag, cls, text) {
+      const e = document.createElement(tag);
+      if (cls) e.className = cls;
+      if (text !== undefined) e.textContent = text;
+      return e;
+    }
+    function show(text, ok) {
+      msg.textContent = text;
+      msg.className = "fm-msg " + (ok ? "ok" : "bad");
+      msg.hidden = false;
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+    function today() {
+      const d = new Date(), z = (n) => String(n).padStart(2, "0");
+      return d.getFullYear() + "-" + z(d.getMonth() + 1) + "-" + z(d.getDate());
+    }
+    function actBtn(label, cls, fn) {
+      const b = el("button", "act " + cls, label);
+      b.type = "button";
+      b.addEventListener("click", fn);
+      return b;
+    }
+    function emptyRow(body, cols, text) {
+      const tr = el("tr"), td = el("td", "", text);
+      td.colSpan = cols;
+      tr.appendChild(td);
+      body.appendChild(tr);
+    }
+
+    // ----- semester fees -----
+    function renderTerms() {
+      const body = $("termRows");
+      body.textContent = "";
+      if (!terms.length) { emptyRow(body, 3, "No fees set yet."); return; }
+      terms.forEach((t) => {
+        const tr = el("tr");
+        tr.append(el("td", "", t.academic_year), el("td", "", "Semester " + t.semester), el("td", "num", admin.money(t.fee_amount)));
+        body.appendChild(tr);
+      });
+    }
+    async function loadTerms() { terms = await admin.api("/admin/fees/terms"); renderTerms(); }
+    async function loadStudents() {
+      students = await admin.api("/admin/students");
+      const dl = $("stuList");
+      dl.textContent = "";
+      students.forEach((s) => { const o = document.createElement("option"); o.value = s.reg_number + " | " + s.name; dl.appendChild(o); });
+    }
+
+    $("termForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const body = {
+        academic_year: $("tYear").value.trim(),
+        semester: parseInt($("tSem").value, 10),
+        amount: parseFloat($("tAmount").value),
+        invoice_date: $("tDate").value,
+      };
+      if (!(body.amount > 0)) { show("Enter the fee amount.", false); return; }
+      if (!confirm("Invoice every active student " + admin.money(body.amount) + " for Semester " + body.semester + " " + body.academic_year + "?\nStudents who already have this invoice are skipped.")) return;
+      const btn = $("termBtn");
+      btn.disabled = true;
+      try {
+        const r = await admin.api("/admin/fees/terms/apply", { method: "POST", body: JSON.stringify(body) });
+        show("Fee saved. " + r.created + " student(s) invoiced, " + r.skipped + " already had it.", true);
+        await loadTerms();
+        if (studentId) await loadLedger();
+      } catch (err) { show(err.message, false); }
+      finally { btn.disabled = false; }
+    });
+
+    // ----- student ledger -----
+    $("stuSearch").addEventListener("input", () => {
+      const v = $("stuSearch").value;
+      const s = students.find((x) => x.reg_number + " | " + x.name === v);
+      if (s) { studentId = s.id; loadLedger(); }
+    });
+
+    async function loadLedger() {
+      try { ledger = await admin.api("/admin/fees/student/" + studentId); renderLedger(); }
+      catch (e) { show(e.message, false); }
+    }
+
+    function renderLedger() {
+      const L = ledger;
+      $("ledger").hidden = false;
+      $("lName").textContent = L.student.name + " (" + L.student.reg_number + ")" + (L.student.active ? "" : "  - inactive");
+      $("lCharged").textContent = admin.money(L.total_charged);
+      $("lPaid").textContent = admin.money(L.total_paid);
+      $("lBalance").textContent = admin.money(L.balance);
+
+      const cb = $("chargeRows");
+      cb.textContent = "";
+      if (!L.charges.length) emptyRow(cb, 6, "No invoices yet.");
+      L.charges.forEach((c) => {
+        const tr = el("tr"), acts = el("td");
+        acts.append(actBtn("Edit", "", () => openEntry("charge", c)), actBtn("Delete", "warn", () => removeEntry("charge", c)));
+        tr.append(el("td", "", c.date), el("td", "", c.ref), el("td", "", c.description), el("td", "", c.term), el("td", "num", admin.money(c.amount)), acts);
+        cb.appendChild(tr);
+      });
+
+      const pb = $("payRows");
+      pb.textContent = "";
+      if (!L.payments.length) emptyRow(pb, 7, "No payments yet.");
+      L.payments.forEach((p) => {
+        const tr = el("tr"), acts = el("td"), st = el("td");
+        st.appendChild(el("span", "pill " + (p.status === "success" ? "on" : "off"), p.source === "manual" ? "Recorded" : "Online - " + p.status));
+        if (p.source === "manual") {
+          acts.append(actBtn("Edit", "", () => openEntry("payment", p)), actBtn("Delete", "warn", () => removeEntry("payment", p)));
+        } else acts.textContent = "Locked";
+        tr.append(el("td", "", p.date), el("td", "", p.ref), el("td", "", p.description), el("td", "", p.term), el("td", "num", admin.money(p.amount)), st, acts);
+        pb.appendChild(tr);
+      });
+    }
+
+    // ----- add / edit dialog -----
+    function openEntry(kind, row) {
+      if (!terms.length) { show("Set a semester fee first, so there is a semester to choose.", false); return; }
+      entry = { kind, id: row ? row.id : null };
+      $("entryTitle").textContent = (row ? "Edit " : "Add ") + (kind === "charge" ? "invoice / adjustment" : "payment");
+      const sel = $("eTerm");
+      sel.textContent = "";
+      terms.forEach((t) => { const o = document.createElement("option"); o.value = t.id; o.textContent = "Semester " + t.semester + " " + t.academic_year; sel.appendChild(o); });
+      sel.value = (row && row.term_id) || terms[0].id;
+      $("eDate").value = row ? row.date : today();
+      $("eAmount").value = row ? row.amount : "";
+      $("eDesc").value = row ? row.description : (kind === "charge" ? "INVOICE ADJUSTMENT" : (bankName || "PAYMENT"));
+      $("eRef").value = row ? row.ref : "";
+      $("entryErr").hidden = true;
+      entryDlg.showModal();
+    }
+    $("addCharge").addEventListener("click", () => openEntry("charge", null));
+    $("addPay").addEventListener("click", () => openEntry("payment", null));
+    $("entryCancel").addEventListener("click", () => entryDlg.close());
+
+    $("entryForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      $("entryErr").hidden = true;
+      const base = {
+        term_id: $("eTerm").value, amount: parseFloat($("eAmount").value),
+        description: $("eDesc").value, ref: $("eRef").value, entry_date: $("eDate").value,
+      };
+      const path = entry.kind === "charge" ? "charges" : "payments";
+      try {
+        if (entry.id) await admin.api("/admin/fees/" + path + "/" + entry.id, { method: "PUT", body: JSON.stringify(base) });
+        else await admin.api("/admin/fees/" + path, { method: "POST", body: JSON.stringify({ ...base, student_id: studentId }) });
+        entryDlg.close();
+        show("Saved.", true);
+        await loadLedger();
+      } catch (err) {
+        $("entryErr").textContent = err.message;
+        $("entryErr").hidden = false;
+      }
+    });
+
+    async function removeEntry(kind, row) {
+      if (!confirm("Delete this " + (kind === "charge" ? "invoice" : "payment") + " of " + admin.money(row.amount) + "?\nThe student's balance and statement will change.")) return;
+      try {
+        await admin.api("/admin/fees/" + (kind === "charge" ? "charges" : "payments") + "/" + row.id, { method: "DELETE" });
+        show("Deleted.", true);
+        await loadLedger();
+      } catch (err) { show(err.message, false); }
+    }
+
+    $("tDate").value = today();
+    function loadBank() {
+      admin.api("/admin/settings").then((s) => { bankName = (s.bank_name || "").trim(); }).catch(() => {});
+    }
+    window.addEventListener("focus", loadBank);
+    loadBank();
+    Promise.all([loadTerms(), loadStudents()]).catch((e) => show(e.message, false));
+  </script>
+</body>
+</html>

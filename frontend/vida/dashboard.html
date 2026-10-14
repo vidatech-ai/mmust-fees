@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Admin | Dashboard</title>
+  <link rel="icon" href="../assets/logo.jpg">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../src/css/main.css">
+  <link rel="stylesheet" href="../src/css/student.css">
+  <link rel="stylesheet" href="../src/css/admin.css?v=4">
+</head>
+<body data-page="dashboard">
+  <div id="content">
+    <h1 class="page-title">Dashboard</h1>
+    <p id="err" class="err" hidden></p>
+
+    <div class="stats">
+      <div class="stat"><div class="label">Students (active / total)</div><div class="value" id="sStudents">-</div></div>
+      <div class="stat"><div class="label">Unread messages</div><div class="value" id="sUnread">-</div></div>
+      <div class="stat"><div class="label">Total charged</div><div class="value" id="sCharged">-</div></div>
+      <div class="stat"><div class="label">Total collected</div><div class="value" id="sPaid">-</div></div>
+      <div class="stat"><div class="label">Outstanding</div><div class="value warn" id="sOut">-</div></div>
+    </div>
+
+    <div class="shortcuts">
+      <a href="students.html">Add or manage students</a>
+      <a href="fees.html">Set fees and record payments</a>
+      <a href="messages.html">Reply to messages</a>
+      <a href="timetable.html">Update timetable</a>
+      <a href="settings.html">Settings</a>
+    </div>
+  </div>
+
+  <script src="../src/js/config.js"></script>
+  <script src="../src/js/admin.js"></script>
+  <script>
+    window.admin.api("/admin/overview").then((d) => {
+      const set = (id, text) => (document.getElementById(id).textContent = text);
+      set("sStudents", d.students_active + " / " + d.students_total);
+      set("sUnread", d.unread_messages);
+      set("sCharged", window.admin.money(d.total_charged));
+      set("sPaid", window.admin.money(d.total_paid));
+      set("sOut", window.admin.money(d.total_outstanding));
+    }).catch((e) => {
+      const box = document.getElementById("err");
+      box.textContent = e.message;
+      box.hidden = false;
+    });
+  </script>
+</body>
+</html>

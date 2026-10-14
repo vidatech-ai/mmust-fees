@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Admin | Settings</title>
+  <link rel="icon" href="../assets/logo.jpg">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../src/css/main.css">
+  <link rel="stylesheet" href="../src/css/student.css">
+  <link rel="stylesheet" href="../src/css/admin.css?v=4">
+</head>
+<body data-page="settings">
+  <div id="content" class="ad-wrap">
+    <h1 class="page-title">Settings</h1>
+    <p id="msg" class="fm-msg" role="alert" hidden></p>
+
+    <form id="form" novalidate>
+      <section class="fm-card">
+        <h2>Statement header</h2>
+        <p class="fm-hint">The school name also appears on the student dashboard. Everything here shows at the top of every fee statement.</p>
+        <div class="fm-grid">
+          <div class="fm-field fm-full"><label for="school_name">School name</label><input id="school_name" maxlength="150"></div>
+          <div class="fm-field fm-full"><label for="location">Location</label><input id="location" maxlength="200"></div>
+          <div class="fm-field"><label for="phone">Phone number(s)</label><input id="phone" maxlength="100" placeholder="separate several with commas"></div>
+          <div class="fm-field"><label for="email">Email</label><input id="email" type="email" maxlength="120"></div>
+        </div>
+      </section>
+
+      <section class="fm-card">
+        <h2>Student details on the statement</h2>
+        <p class="fm-hint">The same for every student.</p>
+        <div class="fm-grid">
+          <div class="fm-field fm-full"><label for="programme">Programme</label><input id="programme" maxlength="200"></div>
+          <div class="fm-field fm-full"><label for="department">Department</label><input id="department" maxlength="200"></div>
+          <div class="fm-field fm-full"><label for="school">School / Faculty</label><input id="school" maxlength="250"></div>
+          <div class="fm-field"><label for="programme_type">Student type</label><input id="programme_type" maxlength="60"></div>
+        </div>
+      </section>
+
+      <section class="fm-card">
+        <h2>Current session</h2>
+        <p class="fm-hint">The start and end dates drive the progress bar on the student dashboard.</p>
+        <div class="fm-grid">
+          <div class="fm-field"><label for="current_academic_year">Academic year</label><input id="current_academic_year" maxlength="9" placeholder="2026/2027"></div>
+          <div class="fm-field"><label for="current_semester">Semester</label>
+            <select id="current_semester"><option value="1">Semester 1</option><option value="2">Semester 2</option></select></div>
+          <div class="fm-field"><label for="semester_start">Semester start date</label><input id="semester_start" type="date"></div>
+          <div class="fm-field"><label for="semester_end">Semester end date</label><input id="semester_end" type="date"></div>
+        </div>
+      </section>
+
+      <section class="fm-card">
+        <h2>Payments</h2>
+        <p class="fm-hint">Printed as the description when a payment is recorded on a statement. Type it exactly as it should appear.</p>
+        <div class="fm-grid">
+          <div class="fm-field fm-full"><label for="bank_name">Bank name</label><input id="bank_name" maxlength="120"></div>
+        </div>
+      </section>
+
+      <button type="submit" id="saveBtn" class="fm-save">Save settings</button>
+    </form>
+  </div>
+
+  <script src="../src/js/config.js"></script>
+  <script src="../src/js/admin.js"></script>
+  <script>
+    const F = ["school_name","location","phone","email","programme","department","school","programme_type",
+               "current_academic_year","current_semester","semester_start","semester_end","bank_name"];
+    const $ = (id) => document.getElementById(id);
+    const msg = $("msg");
+
+    function show(text, ok) {
+      msg.textContent = text;
+      msg.className = "fm-msg " + (ok ? "ok" : "bad");
+      msg.hidden = false;
+    }
+
+    admin.api("/admin/settings").then((d) => {
+      F.forEach((k) => { $(k).value = d[k] ?? ""; });
+      if (!$("current_semester").value) $("current_semester").value = "1";
+    }).catch((e) => show(e.message, false));
+
+    $("form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      msg.hidden = true;
+      const body = {};
+      F.forEach((k) => { body[k] = $(k).value; });
+      body.current_semester = parseInt(body.current_semester, 10);
+      body.semester_start = body.semester_start || null;
+      body.semester_end = body.semester_end || null;
+      const btn = $("saveBtn");
+      btn.disabled = true; btn.textContent = "Saving...";
+      try {
+        await admin.api("/admin/settings", { method: "PUT", body: JSON.stringify(body) });
+        show("Settings saved.", true);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      } catch (err) {
+        show(err.message, false);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      } finally {
+        btn.disabled = false; btn.textContent = "Save settings";
+      }
+    });
+  </script>
+</body>
+</html>

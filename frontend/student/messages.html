@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Message</title>
+  <link rel="icon" href="../assets/logo.jpg">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../src/css/student.css">
+  <link rel="stylesheet" href="../src/css/medium.css?v=9">
+</head>
+<body data-page="messages">
+  <div id="content" class="chat-wrap">
+    <section class="chat-list">
+      <div class="chat-tabs">
+        <button id="tabAll" class="active">All Contacts</button>
+        <button id="tabInbox">Inbox</button>
+      </div>
+      <div class="chat-search"><input id="search" type="search" placeholder="Search"></div>
+      <div class="contacts" id="contacts"></div>
+    </section>
+
+    <section class="chat-pane">
+      <div class="chat-head"><span class="av">A</span><span>Admin</span></div>
+      <div class="chat-msgs" id="msgs"><div class="chat-empty">Loading...</div></div>
+      <p class="chat-err" id="err" hidden></p>
+      <form class="chat-form" id="form">
+        <textarea id="text" maxlength="2000" placeholder="Type a message..."></textarea>
+        <button type="submit" id="send">Send</button>
+      </form>
+    </section>
+  </div>
+
+  <script src="../src/js/config.js"></script>
+  <script src="../src/js/student.js"></script>
+  <script>
+    (function () {
+      const msgsEl = document.getElementById("msgs");
+      const contactsEl = document.getElementById("contacts");
+      const search = document.getElementById("search");
+      const text = document.getElementById("text");
+      const sendBtn = document.getElementById("send");
+      const err = document.getElementById("err");
+      let list = [];
+      let tab = "all";
+      let lastSig = "";
+
+      function fmt(iso) {
+        const d = new Date(iso);
+        return d.toLocaleString("en-KE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+      }
+
+      function renderMsgs() {
+        msgsEl.innerHTML = "";
+        if (!list.length) {
+          const d = document.createElement("div");
+          d.className = "chat-empty";
+          d.textContent = "No messages yet. Write to the admin below.";
+          msgsEl.appendChild(d);
+          return;
+        }
+        list.forEach((m) => {
+          const b = document.createElement("div");
+          b.className = "bubble " + (m.sender === "student" ? "me" : "admin");
+          b.appendChild(document.createTextNode(m.body));
+          const t = document.createElement("span");
+          t.className = "tm";
+          t.textContent = fmt(m.created_at);
+          b.appendChild(t);
+          msgsEl.appendChild(b);
+        });
+        msgsEl.scrollTop = msgsEl.scrollHeight;
+      }
+
+      function renderContacts() {
+        const q = search.value.trim().toLowerCase();
+        const last = list[list.length - 1];
+        const hasUnreadAdmin = list.some((m) => m.sender === "admin" && !m.read_at && !seenNow);
+        contactsEl.innerHTML = "";
+
+        if (tab === "inbox" && !list.length) {
+          const n = document.createElement("div");
+          n.className = "empty-note";
+          n.textContent = "Your inbox is empty.";
+          contactsEl.appendChild(n);
+          return;
+        }
+        const haystack = "admin " + list.map((m) => m.body).join(" ").toLowerCase();
+        if (q && !haystack.includes(q)) {
+          const n = document.createElement("div");
+          n.className = "empty-note";
+          n.textContent = "No results.";
+          contactsEl.appendChild(n);
+          return;
+        }
+        const item = document.createElement("div");
+        item.className = "contact active";
+        item.innerHTML = '<span class="av">A</span><div class="meta"><div class="nm">Admin</div><div class="pv"></div></div>';
+        item.querySelector(".pv").textContent = last ? (last.sender === "student" ? "You: " : "") + last.body : "Start a conversation";
+        contactsEl.appendChild(item);
+      }
+      const seenNow = true; // opening this page marks admin messages as read
+
+      async function load(force) {
+        try {
+          const data = await portal.api("/student/messages");
+          const sig = data.length + ":" + (data.length ? data[data.length - 1].id : "");
+          if (force || sig !== lastSig) {
+            lastSig = sig;
+            list = data;
+            renderMsgs();
+            renderContacts();
+          }
+          const badge = document.getElementById("badge");
+          if (badge) badge.hidden = true;
+        } catch (e) {
+          if (!list.length) msgsEl.innerHTML = '<div class="chat-empty">Could not load messages.</div>';
+        }
+      }
+
+      document.getElementById("tabAll").addEventListener("click", () => {
+        tab = "all"; document.getElementById("tabAll").classList.add("active"); document.getElementById("tabInbox").classList.remove("active"); renderContacts();
+      });
+      document.getElementById("tabInbox").addEventListener("click", () => {
+        tab = "inbox"; document.getElementById("tabInbox").classList.add("active"); document.getElementById("tabAll").classList.remove("active"); renderContacts();
+      });
+      search.addEventListener("input", renderContacts);
+
+      text.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); document.getElementById("form").requestSubmit(); }
+      });
+
+      document.getElementById("form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const body = text.value.trim();
+        if (!body) return;
+        err.hidden = true;
+        sendBtn.disabled = true;
+        try {
+          await portal.api("/student/messages", { method: "POST", body: JSON.stringify({ body }) });
+          text.value = "";
+          await load(true);
+        } catch (ex) {
+          err.textContent = ex.message;
+          err.hidden = false;
+        } finally {
+          sendBtn.disabled = false;
+          text.focus();
+        }
+      });
+
+      load(true);
+      setInterval(load, 8000);
+    })();
+  </script>
+</body>
+</html>

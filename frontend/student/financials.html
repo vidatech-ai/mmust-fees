@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Financials</title>
+  <link rel="icon" href="../assets/logo.jpg">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../src/css/student.css">
+  <link rel="stylesheet" href="../src/css/medium.css?v=9">
+  <link rel="stylesheet" href="../src/css/statement.css?v=5">
+</head>
+<body data-page="financials">
+  <div id="content" class="st-wrap">
+    <div class="crumb">Financials</div>
+    <p id="stErr" class="st-err" hidden></p>
+    <div class="st-bar"><button id="dlBtn" class="st-dl" type="button">Download PDF</button></div>
+
+    <article class="st-sheet" id="sheet" hidden>
+      <header class="st-head">
+        <img src="../assets/logo.jpg" alt="Logo">
+        <h2 id="hName"></h2>
+        <p id="hLoc"></p>
+        <p id="hTel"></p>
+        <p id="hMail"></p>
+        <h3>Fee Statement</h3>
+      </header>
+
+      <section class="st-info">
+        <div id="infoLeft"></div>
+        <div id="infoRight"></div>
+      </section>
+
+      <h4 class="st-h">HOUSEHOLD BREAKDOWN</h4>
+      <div id="tables"></div>
+
+      <h4 class="st-h">HOUSEHOLD</h4>
+      <div class="st-scroll">
+        <table class="st-table">
+          <thead><tr><th class="num">Debit (KES)</th><th class="num">Credit (KES)</th><th class="num">Balance (KES)</th></tr></thead>
+          <tbody><tr class="st-total"><td class="num" id="tDebit"></td><td class="num" id="tCredit"></td><td class="num" id="tBalance"></td></tr></tbody>
+        </table>
+      </div>
+    </article>
+  </div>
+
+  <script src="../src/js/config.js"></script>
+  <script src="../src/js/student.js"></script>
+  <script>
+    function el(tag, cls, text) {
+      const e = document.createElement(tag);
+      if (cls) e.className = cls;
+      if (text !== undefined) e.textContent = text;
+      return e;
+    }
+    const num = (n) => Number(n || 0).toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    function fillLines(box, pairs) {
+      pairs.forEach(([label, value]) => {
+        if (value === "" || value === null || value === undefined) return;
+        const line = el("div", "st-line");
+        line.appendChild(el("b", "", label + ": "));
+        line.appendChild(document.createTextNode(String(value).toUpperCase()));
+        box.appendChild(line);
+      });
+    }
+
+    document.getElementById("dlBtn").addEventListener("click", async () => {
+      const b = document.getElementById("dlBtn");
+      b.disabled = true; b.textContent = "Preparing...";
+      try {
+        await portal.download("/student/statement/pdf", "fee-statement.pdf");
+      } catch (e) {
+        const box = document.getElementById("stErr");
+        box.textContent = e.message; box.hidden = false;
+      } finally {
+        b.disabled = false; b.textContent = "Download PDF";
+      }
+    });
+
+    portal.api("/student/statement").then((d) => {
+      const h = d.header, s = d.student;
+      document.getElementById("hName").textContent = h.school_name;
+      document.getElementById("hLoc").textContent = h.location;
+      document.getElementById("hTel").textContent = h.phone ? "TEL: " + h.phone : "";
+      document.getElementById("hMail").textContent = h.email ? "Email: " + h.email : "";
+
+      fillLines(document.getElementById("infoLeft"), [
+        ["STUDENT NAME", s.name], ["PROGRAMME", s.programme], ["DEPARTMENT", s.department],
+        ["SCHOOL/FACULTY", s.school], ["STUDENT TYPE", s.student_type],
+      ]);
+      fillLines(document.getElementById("infoRight"), [
+        ["REGNO", s.reg_number], ["ADMISSION YEAR", s.admission_year],
+        ["YEAR OF STUDY", "Year " + s.year_of_study], ["TERM", "Semester " + s.term],
+      ]);
+
+      const tables = document.getElementById("tables");
+      d.semesters.forEach((sem) => {
+        tables.appendChild(el("div", "st-sem", sem.label.toUpperCase()));
+        const wrap = el("div", "st-scroll");
+        const t = el("table", "st-table");
+        const head = el("tr");
+        ["No", "Date", "Ref", "Description", "Debit (KES)", "Credit (KES)", "Balance (KES)"].forEach((c, i) =>
+          head.appendChild(el("th", i >= 4 ? "num" : "", c)));
+        t.appendChild(el("thead")).appendChild(head);
+        const body = el("tbody");
+        sem.rows.forEach((r) => {
+          const tr = el("tr");
+          [r.no, r.date, r.ref, r.description].forEach((v) => tr.appendChild(el("td", "", v)));
+          [r.debit, r.credit, r.balance].forEach((v) => tr.appendChild(el("td", "num", portal.money(v))));
+          body.appendChild(tr);
+        });
+        t.appendChild(body);
+        wrap.appendChild(t);
+        tables.appendChild(wrap);
+      });
+
+      document.getElementById("tDebit").textContent = num(d.totals.debit);
+      document.getElementById("tCredit").textContent = num(d.totals.credit);
+      document.getElementById("tBalance").textContent = num(d.totals.balance);
+      document.getElementById("sheet").hidden = false;
+    }).catch((e) => {
+      const box = document.getElementById("stErr");
+      box.textContent = e.message;
+      box.hidden = false;
+    });
+  </script>
+</body>
+</html>

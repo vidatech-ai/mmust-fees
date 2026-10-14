@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Admin | Students</title>
+  <link rel="icon" href="../assets/logo.jpg">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../src/css/main.css">
+  <link rel="stylesheet" href="../src/css/student.css">
+  <link rel="stylesheet" href="../src/css/admin.css?v=4">
+</head>
+<body data-page="students">
+  <div id="content" class="ad-wrap wide">
+    <h1 class="page-title">Students</h1>
+    <p id="msg" class="fm-msg" role="alert" hidden></p>
+
+    <div class="tb-bar">
+      <input id="search" class="tb-search" type="search" placeholder="Search by name or registration number">
+      <button id="addBtn" class="fm-save" type="button">Add student</button>
+    </div>
+
+    <div class="tb-scroll">
+      <table class="tb">
+        <thead><tr>
+          <th></th><th>Name</th><th>Reg number</th><th class="num">Year</th><th class="num">Semester</th>
+          <th class="num">Balance</th><th>Status</th><th>Actions</th>
+        </tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+    <p id="count" class="fm-hint" style="margin-top:10px"></p>
+
+    <!-- Add / edit -->
+    <dialog id="dlg" class="dlg">
+      <form id="dlgForm">
+        <h2 id="dlgTitle">Add student</h2>
+        <p id="dlgErr" class="fm-msg bad" hidden></p>
+        <div class="fm-grid">
+          <div class="fm-field fm-full"><label for="name">Full name</label><input id="name" maxlength="120" required></div>
+          <div class="fm-field fm-full"><label for="regNo">Registration number</label><input id="regNo" maxlength="40" required></div>
+          <div class="fm-field fm-full" id="pwRow">
+            <label for="password">Default password</label>
+            <div class="pw-row"><input id="password" maxlength="64"><button type="button" id="gen1" class="btn-ghost">Generate</button></div>
+          </div>
+          <div class="fm-field"><label for="year">Year of study</label>
+            <select id="year"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option></select></div>
+          <div class="fm-field"><label for="sem">Semester</label>
+            <select id="sem"><option>1</option><option>2</option></select></div>
+          <div class="fm-field"><label for="admYear">Admission year</label><input id="admYear" type="number" min="2000" max="2100" placeholder="2025"></div>
+          <div class="fm-field" id="activeRow"><label>&nbsp;</label><label class="chk"><input id="active" type="checkbox" checked> Active</label></div>
+        </div>
+        <div class="dlg-actions">
+          <button type="button" id="cancel1" class="btn-ghost">Cancel</button>
+          <button type="submit" id="save1" class="fm-save">Save</button>
+        </div>
+      </form>
+    </dialog>
+
+    <!-- Reset password -->
+    <dialog id="pwDlg" class="dlg">
+      <form id="pwForm">
+        <h2>Reset password</h2>
+        <p id="pwWho" class="fm-hint"></p>
+        <p id="pwErr" class="fm-msg bad" hidden></p>
+        <div class="fm-field">
+          <label for="newPw">New password</label>
+          <div class="pw-row"><input id="newPw" maxlength="64" required><button type="button" id="gen2" class="btn-ghost">Generate</button></div>
+        </div>
+        <div class="dlg-actions">
+          <button type="button" id="cancel2" class="btn-ghost">Cancel</button>
+          <button type="submit" class="fm-save">Reset</button>
+        </div>
+      </form>
+    </dialog>
+  </div>
+
+  <script src="../src/js/config.js"></script>
+  <script src="../src/js/admin.js"></script>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const dlg = $("dlg"), pwDlg = $("pwDlg"), msg = $("msg");
+    let students = [], editing = null, pwTarget = null;
+
+    function el(tag, cls, text) {
+      const e = document.createElement(tag);
+      if (cls) e.className = cls;
+      if (text !== undefined) e.textContent = text;
+      return e;
+    }
+    function show(text, ok) {
+      msg.textContent = text;
+      msg.className = "fm-msg " + (ok ? "ok" : "bad");
+      msg.hidden = false;
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+    function genPassword() {
+      const chars = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789"; // no look-alike letters
+      const a = new Uint32Array(10);
+      crypto.getRandomValues(a);
+      return Array.from(a, (n) => chars[n % chars.length]).join("");
+    }
+    function actBtn(label, cls, fn) {
+      const b = el("button", "act " + cls, label);
+      b.type = "button";
+      b.addEventListener("click", fn);
+      return b;
+    }
+
+    function render() {
+      const q = $("search").value.trim().toLowerCase();
+      const list = students.filter((s) => !q || s.name.toLowerCase().includes(q) || s.reg_number.toLowerCase().includes(q));
+      const body = $("rows");
+      body.textContent = "";
+      list.forEach((s) => {
+        const tr = el("tr");
+        const av = el("td");
+        if (s.photo_url) { const i = el("img", "ph"); i.src = s.photo_url; i.alt = ""; av.appendChild(i); }
+        else av.appendChild(el("span", "ini", (s.name[0] || "?").toUpperCase()));
+        const st = el("td"); st.appendChild(el("span", "pill " + (s.active ? "on" : "off"), s.active ? "Active" : "Inactive"));
+        const acts = el("td");
+        acts.append(
+          actBtn("Edit", "", () => openEdit(s)),
+          actBtn("Reset password", "", () => openPw(s)),
+          actBtn(s.active ? "Deactivate" : "Reactivate", s.active ? "warn" : "", () => toggle(s)),
+        );
+        tr.append(av, el("td", "", s.name), el("td", "", s.reg_number), el("td", "num", "Year " + s.year_of_study),
+          el("td", "num", "Sem " + s.semester), el("td", "num", admin.money(s.balance)), st, acts);
+        body.appendChild(tr);
+      });
+      $("count").textContent = list.length + " of " + students.length + " students";
+    }
+
+    async function load() {
+      try { students = await admin.api("/admin/students"); render(); }
+      catch (e) { show(e.message, false); }
+    }
+
+    function openAdd() {
+      editing = null;
+      $("dlgTitle").textContent = "Add student";
+      $("dlgForm").reset();
+      $("password").value = genPassword();
+      $("password").required = true;
+      $("pwRow").hidden = false;
+      $("regNo").disabled = false;
+      $("activeRow").hidden = true;
+      $("dlgErr").hidden = true;
+      dlg.showModal();
+    }
+    function openEdit(s) {
+      editing = s;
+      $("dlgTitle").textContent = "Edit student";
+      $("name").value = s.name;
+      $("regNo").value = s.reg_number;
+      $("regNo").disabled = true;           // the reg number is the student's identity, so it can't be changed
+      $("year").value = String(s.year_of_study);
+      $("sem").value = String(s.semester);
+      $("admYear").value = s.admission_year ?? "";
+      $("active").checked = s.active;
+      $("password").required = false;
+      $("pwRow").hidden = true;
+      $("activeRow").hidden = false;
+      $("dlgErr").hidden = true;
+      dlg.showModal();
+    }
+    function openPw(s) {
+      pwTarget = s;
+      $("pwWho").textContent = s.name + " (" + s.reg_number + ")";
+      $("newPw").value = genPassword();
+      $("pwErr").hidden = true;
+      pwDlg.showModal();
+    }
+
+    async function toggle(s) {
+      const verb = s.active ? "Deactivate" : "Reactivate";
+      if (!confirm(verb + " " + s.name + "?")) return;
+      try {
+        await admin.api("/admin/students/" + s.id, { method: "PUT", body: JSON.stringify({
+          name: s.name, year_of_study: s.year_of_study, semester: s.semester,
+          admission_year: s.admission_year, active: !s.active }) });
+        show(s.name + (s.active ? " deactivated." : " reactivated."), true);
+        await load();
+      } catch (e) { show(e.message, false); }
+    }
+
+    $("addBtn").addEventListener("click", openAdd);
+    $("search").addEventListener("input", render);
+    $("gen1").addEventListener("click", () => { $("password").value = genPassword(); });
+    $("gen2").addEventListener("click", () => { $("newPw").value = genPassword(); });
+    $("cancel1").addEventListener("click", () => dlg.close());
+    $("cancel2").addEventListener("click", () => pwDlg.close());
+
+    $("dlgForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      $("dlgErr").hidden = true;
+      const body = {
+        name: $("name").value,
+        year_of_study: parseInt($("year").value, 10),
+        semester: parseInt($("sem").value, 10),
+        admission_year: $("admYear").value ? parseInt($("admYear").value, 10) : null,
+      };
+      const btn = $("save1");
+      btn.disabled = true;
+      try {
+        if (editing) {
+          body.active = $("active").checked;
+          await admin.api("/admin/students/" + editing.id, { method: "PUT", body: JSON.stringify(body) });
+          dlg.close();
+          show("Saved changes for " + body.name + ".", true);
+        } else {
+          body.reg_number = $("regNo").value;
+          body.password = $("password").value;
+          const s = await admin.api("/admin/students", { method: "POST", body: JSON.stringify(body) });
+          dlg.close();
+          show("Student added. Reg no: " + s.reg_number + "  |  Password: " + body.password + "  -  write it down now, it cannot be shown again.", true);
+        }
+        await load();
+      } catch (err) {
+        $("dlgErr").textContent = err.message;
+        $("dlgErr").hidden = false;
+      } finally { btn.disabled = false; }
+    });
+
+    $("pwForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      $("pwErr").hidden = true;
+      try {
+        const pw = $("newPw").value;
+        await admin.api("/admin/students/" + pwTarget.id + "/password", { method: "POST", body: JSON.stringify({ password: pw }) });
+        pwDlg.close();
+        show("Password for " + pwTarget.name + " reset to: " + pw + "  -  write it down now, it cannot be shown again.", true);
+      } catch (err) {
+        $("pwErr").textContent = err.message;
+        $("pwErr").hidden = false;
+      }
+    });
+
+    load();
+  </script>
+</body>
+</html>

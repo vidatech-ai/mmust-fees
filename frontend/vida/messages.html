@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Admin | Messages</title>
+  <link rel="icon" href="../assets/logo.jpg">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../src/css/main.css">
+  <link rel="stylesheet" href="../src/css/student.css">
+  <link rel="stylesheet" href="../src/css/admin.css?v=5">
+</head>
+<body data-page="messages">
+  <div id="content" class="chat-wrap">
+    <aside class="chat-list">
+      <div class="chat-search"><input id="search" type="search" placeholder="Search students"></div>
+      <div class="contacts" id="contacts"></div>
+    </aside>
+    <section class="chat-pane">
+      <div class="chat-head"><span id="headName">Select a student</span></div>
+      <div class="chat-msgs" id="msgs"><div class="chat-empty">Choose a student on the left to read and reply.</div></div>
+      <p id="err" class="chat-err" hidden></p>
+      <form class="chat-form" id="form">
+        <textarea id="text" maxlength="2000" placeholder="Type a message (Enter to send, Shift+Enter for a new line)" disabled></textarea>
+        <button id="sendBtn" type="submit" disabled>Send</button>
+      </form>
+    </section>
+  </div>
+
+  <script src="../src/js/config.js"></script>
+  <script src="../src/js/admin.js"></script>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    let convs = [], current = null, lastKey = "";
+
+    function el(tag, cls, text) {
+      const e = document.createElement(tag);
+      if (cls) e.className = cls;
+      if (text !== undefined) e.textContent = text;
+      return e;
+    }
+    function fmt(iso) {
+      return new Date(iso).toLocaleString("en-KE", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+    }
+    function showErr(text) {
+      const box = $("err");
+      box.textContent = text;
+      box.hidden = false;
+      setTimeout(() => (box.hidden = true), 5000);
+    }
+
+    function renderList() {
+      const q = $("search").value.trim().toLowerCase();
+      const box = $("contacts");
+      box.textContent = "";
+      const list = convs.filter((c) => !q || c.name.toLowerCase().includes(q) || c.reg_number.toLowerCase().includes(q));
+      if (!list.length) box.appendChild(el("div", "empty-note", "No students found."));
+      list.forEach((c) => {
+        const row = el("div", "contact" + (current && current.student_id === c.student_id ? " active" : ""));
+        row.appendChild(el("div", "av", (c.name[0] || "?").toUpperCase()));
+        const meta = el("div", "meta");
+        meta.appendChild(el("div", "nm", c.name));
+        meta.appendChild(el("div", "pv", c.last_body || c.reg_number));
+        row.appendChild(meta);
+        if (c.unread > 0) row.appendChild(el("span", "dot"));
+        row.addEventListener("click", () => openThread(c));
+        box.appendChild(row);
+      });
+    }
+
+    async function loadConvs() {
+      try {
+        convs = await admin.api("/admin/messages/conversations");
+        if (current) {
+          const c = convs.find((x) => x.student_id === current.student_id);
+          if (c) { c.unread = 0; current = c; }   // the open chat is being read
+        }
+        renderList();
+      } catch (e) { /* keep the old list; try again on the next refresh */ }
+    }
+
+    async function openThread(c) {
+      current = c;
+      c.unread = 0;
+      lastKey = "";
+      $("headName").textContent = c.name + " (" + c.reg_number + ")";
+      $("text").disabled = false;
+      $("sendBtn").disabled = false;
+      renderList();
+      await loadThread(true);
+      $("text").focus();
+    }
+
+    async function loadThread(force) {
+      if (!current) return;
+      const id = current.student_id;
+      try {
+        const msgs = await admin.api("/admin/messages/thread/" + id);
+        if (!current || current.student_id !== id) return;   // you switched student meanwhile
+        const key = msgs.length + ":" + (msgs.length ? msgs[msgs.length - 1].id : "");
+        if (key === lastKey && !force) return;
+        lastKey = key;
+        const box = $("msgs");
+        const stick = force || box.scrollHeight - box.scrollTop - box.clientHeight < 80;
+        box.textContent = "";
+        if (!msgs.length) box.appendChild(el("div", "chat-empty", "No messages yet. Write the first one below."));
+        msgs.forEach((m) => {
+          const b = el("div", "bubble " + (m.sender === "admin" ? "me" : "admin"));
+          b.appendChild(document.createTextNode(m.body));
+          b.appendChild(el("span", "tm", fmt(m.created_at)));
+          box.appendChild(b);
+        });
+        if (stick) box.scrollTop = box.scrollHeight;
+      } catch (e) { showErr(e.message); }
+    }
+
+    $("form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      if (!current) return;
+      const text = $("text").value.trim();
+      if (!text) return;
+      $("sendBtn").disabled = true;
+      try {
+        await admin.api("/admin/messages/thread/" + current.student_id, { method: "POST", body: JSON.stringify({ body: text }) });
+        $("text").value = "";
+        await loadThread(true);
+        loadConvs();
+      } catch (err) { showErr(err.message); }
+      finally { $("sendBtn").disabled = false; }
+    });
+    $("text").addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $("form").requestSubmit(); }
+    });
+    $("search").addEventListener("input", renderList);
+
+    loadConvs();
+    setInterval(() => { if (!document.hidden) { loadConvs(); loadThread(false); } }, 8000);
+  </script>
+</body>
+</html>

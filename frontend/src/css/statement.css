@@ -1,0 +1,68 @@
+/* Fee statement page */
+.st-wrap { padding: 18px 22px; }
+.st-sheet { background: #fff; border: 1px solid #c9cfdb; border-radius: 4px; padding: 26px 30px; max-width: 1000px; box-shadow: 0 1px 3px rgba(20,30,60,.08); }
+.st-sheet[hidden] { display: none; }
+
+.st-head { text-align: center; padding-bottom: 14px; margin-bottom: 16px; border-bottom: 2px solid #0b3a7e; }
+.st-head img { height: 60px; width: auto; display: block; margin: 0 auto 6px; }
+.st-head h2 { font-size: 17px; font-weight: 600; margin: 4px 0; }
+.st-head p { font-size: 12px; color: #4b5563; margin: 2px 0; }
+.st-head h3 { font-size: 16px; font-weight: 600; margin-top: 12px; }
+.st-head p.st-demo { color: #b42318; font-weight: 500; font-size: 11px; margin-top: 4px; }
+
+.st-info { display: grid; grid-template-columns: 1fr auto; gap: 24px; border: 1px solid #c9cfdb; padding: 12px 16px; font-size: 11.5px; margin-bottom: 18px; background: #fafbfe; }
+.st-line { margin-bottom: 4px; }
+
+.st-h { font-size: 12.5px; font-weight: 600; margin: 16px 0 6px; }
+.st-sem { font-size: 12px; font-weight: 600; background: #e8f1fd; color: #0b3a7e; padding: 6px 10px; border: 1px solid #c9cfdb; border-bottom: 0; margin-top: 12px; }
+.st-scroll { overflow-x: auto; margin-bottom: 8px; }
+
+.st-table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+.st-table th, .st-table td { border: 1px solid #c9cfdb; padding: 8px 10px; text-align: left; }
+.st-table th { background: #f1f3f9; font-weight: 600; white-space: nowrap; }
+.st-table .num { text-align: right; white-space: nowrap; }
+.st-total td { font-weight: 700; background: #f1f3f9; }
+
+.st-err { background: #fdecec; color: #b42318; padding: 10px 12px; border-radius: 4px; font-size: 12px; margin-bottom: 14px; }
+.st-err[hidden] { display: none; }
+
+@media (max-width: 700px) {
+  .st-sheet { padding: 16px 10px; }
+  .st-info { grid-template-columns: 1fr; }
+}
+
+.st-bar { max-width: 1000px; display: flex; justify-content: flex-end; margin-bottom: 10px; }
+.st-dl { background: #1a73f5; color: #fff; border: 0; border-radius: 4px; padding: 9px 18px; font: inherit; font-size: 12.5px; font-weight: 500; cursor: pointer; }
+.st-dl:hover { background: #1560d4; }
+.st-dl:disabled { opacity: .6; cursor: not-allowed; }
+
+/* ---- Bigger, centered statement ---- */
+.st-wrap { padding: 22px 28px; }
+.st-sheet, .st-bar { width: 100%; max-width: 1250px; margin-left: auto; margin-right: auto; }
+.st-sheet { padding: 34px 40px; }
+
+.st-head img { height: 74px; }
+.st-head h2 { font-size: 22px; }
+.st-head p { font-size: 15px; }
+.st-head h3 { font-size: 20px; }
+.st-head p.st-demo { font-size: 14px; }
+
+.st-info { font-size: 15px; padding: 16px 20px; }
+.st-line { margin-bottom: 6px; }
+
+.st-h { font-size: 16px; margin: 20px 0 8px; }
+.st-sem { font-size: 15px; padding: 9px 12px; }
+.st-table { font-size: 15px; }
+.st-table th, .st-table td { padding: 11px 12px; }
+
+.st-dl { font-size: 15px; padding: 11px 22px; }
+.st-err { font-size: 14px; }
+
+@media (max-width: 700px) {
+  .st-wrap { padding: 14px 8px; }
+  .st-sheet { padding: 18px 10px; }
+  .st-table { font-size: 13px; }
+  .st-head h2 { font-size: 18px; }
+}
+
+.st-head img { height: 90px; }

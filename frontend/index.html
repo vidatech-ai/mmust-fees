@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Student Portal | Sign in</title>
+  <link rel="icon" href="assets/logo.jpg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="src/css/main.css?v=3">
+</head>
+<body class="login-page">
+  <main class="split">
+    <section class="hero" aria-hidden="true">
+      <h2>UNIVERSITY OF CHOICE</h2>
+    </section>
+
+    <section class="panel">
+      <div class="panel-inner">
+        <img class="logo" src="assets/logo.jpg" alt="Logo">
+        <h1>Hi, welcome back</h1>
+        <p class="sub">Please fill in your details to log in</p>
+        <p class="notice"><b>Clinical Medicine students only.</b> This sign-in is strictly for Clinical Medicine students. Students from other programmes should use the main student portal.</p>
+
+
+        <form id="loginForm" class="card" novalidate>
+          <label for="reg">Username</label>
+          <input id="reg" type="text" autocomplete="username" autocapitalize="characters" placeholder="Registration number" required>
+
+          <label for="pw">Password</label>
+          <div class="pw-wrap">
+            <input id="pw" type="password" autocomplete="current-password" required>
+            <button type="button" id="togglePw" aria-label="Show password">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
+
+          <div class="row">
+            <label class="check"><input type="checkbox" id="remember"> Remember me</label>
+            <a href="#" id="forgot">Forgot Password?</a>
+          </div>
+
+          <p id="msg" class="msg" role="alert" hidden></p>
+          <button type="submit" id="submitBtn" class="btn">Sign in</button>
+        </form>
+
+        <p class="foot-note">Don't have an account? <span class="blue">Visit ABA 210</span></p>
+        <p class="copy">Copyright &copy; 2026 Student Portal</p>
+      </div>
+    </section>
+  </main>
+
+  <script src="src/js/config.js"></script>
+  <script src="src/js/auth.js"></script>
+</body>
+</html>
