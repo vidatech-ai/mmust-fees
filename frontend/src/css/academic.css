@@ -1,0 +1,12 @@
+.ac-wrap{overflow-x:auto;border:1px solid #dfe3ee;border-radius:10px;background:#fff;margin-bottom:14px}
+.ac-table{width:100%;border-collapse:collapse;font-size:13.5px}
+.ac-table th{background:#f6f8fc;color:#0b3a7e;text-align:left;padding:10px 12px;border-bottom:1px solid #dfe3ee;white-space:nowrap}
+.ac-table td{padding:9px 12px;border-bottom:1px solid #eef0f6;color:#33415e}
+.ac-table tr:last-child td{border-bottom:0}
+.ac-table .num{text-align:right;white-space:nowrap}
+.ac-table .acts{white-space:nowrap;text-align:right}
+.ac-group{margin:18px 0 8px;font-size:15px;color:#0b3a7e}
+.ac-empty{color:#6b7690;font-size:14px;padding:12px 0}
+.ac-grade{font-weight:600;color:#0b3a7e}
+.ac-bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:8px 0 14px}
+.ac-bar select{min-width:260px;max-width:100%;padding:8px 10px;border:1px solid #cdd4e4;border-radius:6px;font:inherit}

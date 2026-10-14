@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Admin | Academic</title>
+  <link rel="icon" href="../assets/logo.jpg">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../src/css/main.css">
+  <link rel="stylesheet" href="../src/css/student.css">
+  <link rel="stylesheet" href="../src/css/admin.css?v=5">
+  <link rel="stylesheet" href="../src/css/timetable.css?v=1">
+  <link rel="stylesheet" href="../src/css/academic.css?v=1">
+</head>
+<body data-page="academic">
+  <div id="content" class="ad-wrap wide tt-wrap">
+    <h1 class="page-title">Academic</h1>
+    <p id="msg" class="fm-msg" role="alert" hidden></p>
+
+    <section class="fm-card">
+      <div class="tt-top">
+        <h2 id="unitsTitle">Semester units</h2>
+        <button type="button" id="addUnit" class="fm-save">Add unit</button>
+      </div>
+      <p class="fm-hint">Units belong to the current semester set in Settings. Each unit is shown to students of the chosen year of study.</p>
+      <div id="units"></div>
+    </section>
+
+    <section class="fm-card">
+      <div class="tt-top">
+        <h2>Student transcript</h2>
+        <button type="button" id="addRec" class="fm-save green" disabled>Add result</button>
+      </div>
+      <p class="fm-hint">Choose a student, then add results per unit. If you leave the grade empty it is worked out from the marks (A 70+, B 60+, C 50+, D 40+, E below 40).</p>
+      <div class="ac-bar">
+        <select id="stSel"><option value="">Choose a student...</option></select>
+      </div>
+      <div id="records"></div>
+    </section>
+
+    <dialog id="unitDlg" class="dlg">
+      <form id="unitForm">
+        <h2 id="unitH"></h2>
+        <p id="unitErr" class="fm-msg bad" hidden></p>
+        <div class="fm-grid">
+          <div class="fm-field"><label for="uYear">Year of study</label>
+            <select id="uYear"><option value="1">Year 1</option><option value="2">Year 2</option><option value="3">Year 3</option><option value="4">Year 4</option><option value="5">Year 5</option><option value="6">Year 6</option></select></div>
+          <div class="fm-field"><label for="uCode">Unit code</label><input id="uCode" maxlength="30" placeholder="e.g. PML 212"></div>
+          <div class="fm-field fm-full"><label for="uName">Unit name</label><input id="uName" maxlength="150" required></div>
+          <div class="fm-field"><label for="uCredit">Credit hours (optional)</label><input id="uCredit" type="number" min="0" max="100" step="0.5"></div>
+        </div>
+        <div class="dlg-actions">
+          <button type="button" id="unitDelete" class="btn-ghost" hidden>Delete</button>
+          <button type="button" id="unitCancel" class="btn-ghost">Cancel</button>
+          <button type="submit" class="fm-save">Save</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="recDlg" class="dlg">
+      <form id="recForm">
+        <h2 id="recH"></h2>
+        <p id="recErr" class="fm-msg bad" hidden></p>
+        <div class="fm-grid">
+          <div class="fm-field"><label for="rAy">Academic year</label><input id="rAy" maxlength="20" required placeholder="e.g. 2025/2026"></div>
+          <div class="fm-field"><label for="rSem">Semester</label>
+            <select id="rSem"><option value="1">Semester 1</option><option value="2">Semester 2</option><option value="3">Semester 3</option></select></div>
+          <div class="fm-field"><label for="rYear">Year of study</label>
+            <select id="rYear"><option value="1">Year 1</option><option value="2">Year 2</option><option value="3">Year 3</option><option value="4">Year 4</option><option value="5">Year 5</option><option value="6">Year 6</option></select></div>
+          <div class="fm-field"><label for="rCode">Unit code</label><input id="rCode" maxlength="30"></div>
+          <div class="fm-field fm-full"><label for="rName">Unit name</label><input id="rName" maxlength="150" required></div>
+          <div class="fm-field"><label for="rMarks">Marks (0-100)</label><input id="rMarks" type="number" min="0" max="100" step="0.01"></div>
+          <div class="fm-field"><label for="rGrade">Grade (optional)</label><input id="rGrade" maxlength="5" placeholder="auto from marks"></div>
+        </div>
+        <div class="dlg-actions">
+          <button type="button" id="recDelete" class="btn-ghost" hidden>Delete</button>
+          <button type="button" id="recCancel" class="btn-ghost">Cancel</button>
+          <button type="submit" class="fm-save">Save</button>
+        </div>
+      </form>
+    </dialog>
+  </div>
+
+  <script src="../src/js/config.js"></script>
+  <script src="../src/js/admin.js"></script>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const h = (tag, cls, text) => {
+      const e = document.createElement(tag);
+      if (cls) e.className = cls;
+      if (text !== undefined && text !== null) e.textContent = text;
+      return e;
+    };
+    const msg = $("msg"), unitDlg = $("unitDlg"), recDlg = $("recDlg");
+    let data = { session: {}, units: [] }, editUnit = null;
+    let student = null, records = [], editRec = null;
+
+    function show(text, ok) {
+      msg.textContent = text;
+      msg.className = "fm-msg " + (ok ? "ok" : "bad");
+      msg.hidden = false;
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+    function table(headers, rows, numCols) {
+      const wrap = h("div", "ac-wrap"), t = h("table", "ac-table");
+      const tr = h("tr");
+      headers.forEach((x, i) => tr.appendChild(h("th", numCols.includes(i) ? "num" : "", x)));
+      t.appendChild(h("thead")).appendChild(tr);
+      const body = h("tbody");
+      rows.forEach((r) => {
+        const row = h("tr");
+        r.cells.forEach((c, i) => row.appendChild(h("td", numCols.includes(i) ? "num" : "", c)));
+        const td = h("td", "acts");
+        const ed = h("button", "act", "Edit"); ed.type = "button"; ed.addEventListener("click", r.onEdit);
+        td.appendChild(ed);
+        row.appendChild(td);
+        body.appendChild(row);
+      });
+      t.appendChild(body);
+      wrap.appendChild(t);
+      return wrap;
+    }
+
+    // ----- units -----
+    function renderUnits() {
+      const s = data.session, box = $("units");
+      box.textContent = "";
+      $("unitsTitle").textContent = s.academic_year && s.semester ? "Units - Semester " + s.semester + " " + s.academic_year : "Semester units";
+      if (!data.units.length) {
+        box.appendChild(h("p", "ac-empty", s.academic_year ? "No units added yet. Click Add unit." : "Set the academic year and semester in Settings first."));
+        return;
+      }
+      box.appendChild(table(["Year", "Code", "Unit", "Credit hours", ""],
+        data.units.map((u) => ({
+          cells: ["Year " + u.year_of_study, u.unit_code || "-", u.unit_name, u.credit_hours === null ? "-" : u.credit_hours],
+          onEdit: () => openUnit(u),
+        })), [3]));
+    }
+    async function loadUnits() { data = await admin.api("/admin/academic"); renderUnits(); }
+
+    function openUnit(u) {
+      editUnit = u || null;
+      $("unitH").textContent = u ? "Edit unit" : "Add unit";
+      $("uYear").value = u ? String(u.year_of_study) : "1";
+      $("uCode").value = u ? (u.unit_code || "") : "";
+      $("uName").value = u ? u.unit_name : "";
+      $("uCredit").value = u && u.credit_hours !== null ? u.credit_hours : "";
+      $("unitDelete").hidden = !u;
+      $("unitErr").hidden = true;
+      unitDlg.showModal();
+    }
+    $("addUnit").addEventListener("click", () => openUnit(null));
+    $("unitCancel").addEventListener("click", () => unitDlg.close());
+    $("unitForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      $("unitErr").hidden = true;
+      const body = {
+        year_of_study: parseInt($("uYear").value, 10), unit_code: $("uCode").value, unit_name: $("uName").value,
+        credit_hours: $("uCredit").value === "" ? null : parseFloat($("uCredit").value),
+      };
+      try {
+        if (editUnit) await admin.api("/admin/academic/units/" + editUnit.id, { method: "PUT", body: JSON.stringify(body) });
+        else await admin.api("/admin/academic/units", { method: "POST", body: JSON.stringify(body) });
+        unitDlg.close();
+        show("Saved.", true);
+        await loadUnits();
+      } catch (err) { $("unitErr").textContent = err.message; $("unitErr").hidden = false; }
+    });
+    $("unitDelete").addEventListener("click", async () => {
+      if (!editUnit || !confirm("Delete " + editUnit.unit_name + "?")) return;
+      try {
+        await admin.api("/admin/academic/units/" + editUnit.id, { method: "DELETE" });
+        unitDlg.close();
+        show("Deleted.", true);
+        await loadUnits();
+      } catch (err) { $("unitErr").textContent = err.message; $("unitErr").hidden = false; }
+    });
+
+    // ----- transcript -----
+    function renderRecords() {
+      const box = $("records");
+      box.textContent = "";
+      $("addRec").disabled = !student;
+      if (!student) { box.appendChild(h("p", "ac-empty", "Choose a student to view or edit their transcript.")); return; }
+      if (!records.length) { box.appendChild(h("p", "ac-empty", "No results for " + student.name + " yet. Click Add result.")); return; }
+      const groups = {}, order = [];
+      records.forEach((r) => {
+        const k = r.academic_year + "|" + r.semester + "|" + r.year_of_study;
+        if (!groups[k]) { groups[k] = []; order.push(k); }
+        groups[k].push(r);
+      });
+      order.forEach((k) => {
+        const [ay, sem, yr] = k.split("|");
+        box.appendChild(h("h4", "ac-group", "Year " + yr + " - Semester " + sem + " - " + ay));
+        box.appendChild(table(["Code", "Unit", "Marks", "Grade", ""],
+          groups[k].map((r) => ({
+            cells: [r.unit_code || "-", r.unit_name, r.marks === null ? "-" : r.marks, r.grade || "-"],
+            onEdit: () => openRec(r),
+          })), [2, 3]));
+      });
+    }
+    async function loadRecords() {
+      if (!student) { records = []; renderRecords(); return; }
+      const d = await admin.api("/admin/academic/transcript/" + student.id);
+      student = d.student; records = d.records; renderRecords();
+    }
+    $("stSel").addEventListener("change", async () => {
+      const id = $("stSel").value;
+      student = id ? { id: id, name: $("stSel").selectedOptions[0].textContent } : null;
+      try { await loadRecords(); } catch (e) { show(e.message, false); }
+    });
+
+    function openRec(r) {
+      editRec = r || null;
+      $("recH").textContent = (r ? "Edit result" : "Add result") + " - " + student.name;
+      $("rAy").value = r ? r.academic_year : (data.session.academic_year || "");
+      $("rSem").value = r ? String(r.semester) : String(data.session.semester || 1);
+      $("rYear").value = r ? String(r.year_of_study) : String(student.year_of_study || 1);
+      $("rCode").value = r ? (r.unit_code || "") : "";
+      $("rName").value = r ? r.unit_name : "";
+      $("rMarks").value = r && r.marks !== null ? r.marks : "";
+      $("rGrade").value = r ? (r.grade || "") : "";
+      $("recDelete").hidden = !r;
+      $("recErr").hidden = true;
+      recDlg.showModal();
+    }
+    $("addRec").addEventListener("click", () => { if (student) openRec(null); });
+    $("recCancel").addEventListener("click", () => recDlg.close());
+    $("recForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      $("recErr").hidden = true;
+      const body = {
+        academic_year: $("rAy").value, semester: parseInt($("rSem").value, 10), year_of_study: parseInt($("rYear").value, 10),
+        unit_code: $("rCode").value, unit_name: $("rName").value,
+        marks: $("rMarks").value === "" ? null : parseFloat($("rMarks").value), grade: $("rGrade").value,
+      };
+      try {
+        if (editRec) await admin.api("/admin/academic/records/" + editRec.id, { method: "PUT", body: JSON.stringify(body) });
+        else await admin.api("/admin/academic/transcript/" + student.id, { method: "POST", body: JSON.stringify(body) });
+        recDlg.close();
+        show("Saved.", true);
+        await loadRecords();
+      } catch (err) { $("recErr").textContent = err.message; $("recErr").hidden = false; }
+    });
+    $("recDelete").addEventListener("click", async () => {
+      if (!editRec || !confirm("Delete " + editRec.unit_name + " from the transcript?")) return;
+      try {
+        await admin.api("/admin/academic/records/" + editRec.id, { method: "DELETE" });
+        recDlg.close();
+        show("Deleted.", true);
+        await loadRecords();
+      } catch (err) { $("recErr").textContent = err.message; $("recErr").hidden = false; }
+    });
+
+    // ----- start -----
+    renderRecords();
+    loadUnits().catch((e) => show(e.message, false));
+    admin.api("/admin/academic/students").then((d) => {
+      d.students.forEach((s) => {
+        const o = document.createElement("option");
+        o.value = s.id; o.textContent = s.reg_number + " - " + s.name;
+        $("stSel").appendChild(o);
+      });
+    }).catch((e) => show(e.message, false));
+  </script>
+</body>
+</html>

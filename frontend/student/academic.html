@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Academic</title>
+  <link rel="icon" href="../assets/logo.jpg">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../src/css/student.css">
+  <link rel="stylesheet" href="../src/css/medium.css?v=9">
+  <link rel="stylesheet" href="../src/css/timetable.css?v=1">
+  <link rel="stylesheet" href="../src/css/academic.css?v=1">
+</head>
+<body data-page="academic">
+  <div id="content" class="left-col tt-wrap">
+    <div class="crumb">Academic</div>
+    <p id="acErr" class="tt-err" hidden></p>
+
+    <h3 class="tt-h" id="unitsTitle">Current semester units</h3>
+    <div id="units"></div>
+
+    <h3 class="tt-h">Transcript</h3>
+    <div id="transcript"></div>
+  </div>
+
+  <script src="../src/js/config.js"></script>
+  <script src="../src/js/student.js"></script>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const h = (tag, cls, text) => {
+      const e = document.createElement(tag);
+      if (cls) e.className = cls;
+      if (text !== undefined && text !== null) e.textContent = text;
+      return e;
+    };
+    function table(headers, rows, numCols) {
+      const wrap = h("div", "ac-wrap"), t = h("table", "ac-table");
+      const tr = h("tr");
+      headers.forEach((x, i) => tr.appendChild(h("th", numCols.includes(i) ? "num" : "", x)));
+      t.appendChild(h("thead")).appendChild(tr);
+      const body = h("tbody");
+      rows.forEach((r) => {
+        const row = h("tr");
+        r.forEach((c, i) => row.appendChild(h("td", numCols.includes(i) ? "num" : "", c)));
+        body.appendChild(row);
+      });
+      t.appendChild(body);
+      wrap.appendChild(t);
+      return wrap;
+    }
+
+    portal.api("/student/academic").then((d) => {
+      const s = d.session || {};
+      if (s.academic_year && s.semester) {
+        $("unitsTitle").textContent = "Units - Semester " + s.semester + " " + s.academic_year + (d.year_of_study ? " (Year " + d.year_of_study + ")" : "");
+      }
+      const u = $("units");
+      if (!d.units.length) {
+        u.appendChild(h("p", "ac-empty", "The admin has not posted your units for this semester yet."));
+      } else {
+        let total = 0;
+        const rows = d.units.map((x) => {
+          if (x.credit_hours) total += Number(x.credit_hours);
+          return [x.unit_code || "-", x.unit_name, x.credit_hours === null ? "-" : x.credit_hours];
+        });
+        u.appendChild(table(["Code", "Unit", "Credit hours"], rows, [2]));
+        if (total) u.appendChild(h("p", "ac-empty", "Total credit hours: " + total));
+      }
+
+      const t = $("transcript");
+      if (!d.records.length) {
+        t.appendChild(h("p", "ac-empty", "No results have been posted to your transcript yet."));
+        return;
+      }
+      const groups = {};
+      d.records.forEach((r) => {
+        const k = r.academic_year + "|" + r.semester + "|" + r.year_of_study;
+        (groups[k] = groups[k] || []).push(r);
+      });
+      Object.keys(groups).forEach((k) => {
+        const [ay, sem, yr] = k.split("|");
+        t.appendChild(h("h4", "ac-group", "Year " + yr + " - Semester " + sem + " - " + ay));
+        const rows = groups[k].map((r) => [r.unit_code || "-", r.unit_name, r.marks === null ? "-" : r.marks, r.grade || "-"]);
+        t.appendChild(table(["Code", "Unit", "Marks", "Grade"], rows, [2, 3]));
+      });
+    }).catch((e) => {
+      $("acErr").textContent = e.message;
+      $("acErr").hidden = false;
+    });
+  </script>
+</body>
+</html>
