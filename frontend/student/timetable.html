@@ -8,16 +8,48 @@
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../src/css/student.css">
   <link rel="stylesheet" href="../src/css/medium.css?v=9">
+  <link rel="stylesheet" href="../src/css/timetable.css?v=1">
 </head>
 <body data-page="timetable">
-  <div id="content" class="left-col">
+  <div id="content" class="left-col tt-wrap">
     <div class="crumb">Timetable</div>
-    <div class="welcome">
-      <h2>Timetable</h2>
-      <p>The admin will share the timetable here soon. Please check back later.</p>
-    </div>
+    <p id="ttErr" class="tt-err" hidden></p>
+    <div id="next" class="tt-next" hidden></div>
+
+    <h3 class="tt-h" id="wkTitle">Weekly classes</h3>
+    <div class="tt-legend" id="legend"></div>
+    <div id="grid"></div>
+    <div id="days" class="tt-days"></div>
+
+    <h3 class="tt-h">Key dates</h3>
+    <div id="events"></div>
   </div>
+
   <script src="../src/js/config.js"></script>
   <script src="../src/js/student.js"></script>
+  <script src="../src/js/timetable-grid.js"></script>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    Object.keys(tt.TYPE_LABEL).forEach((k) => $("legend").appendChild(tt.el("span", "tt-" + k, tt.TYPE_LABEL[k])));
+
+    portal.api("/student/timetable").then((d) => {
+      const now = new Date(), today = tt.todayDow();
+      const s = d.session || {};
+      if (s.academic_year && s.semester) $("wkTitle").textContent = "Weekly classes - Semester " + s.semester + " " + s.academic_year;
+
+      const nxt = tt.nextClass(d.classes, now);
+      if (nxt) { $("next").textContent = tt.describeNext(nxt, now); $("next").hidden = false; }
+
+      const none = "The admin has not posted the weekly timetable yet. Please check back later.";
+      tt.renderGrid($("grid"), d.classes, { today: today, emptyText: none });
+      tt.renderDays($("days"), d.classes, { today: today });
+      if (!d.classes.length) $("days").textContent = "";
+      tt.renderEvents($("events"), d.events, { emptyText: "No key dates posted yet." });
+    }).catch((e) => {
+      const box = $("ttErr");
+      box.textContent = e.message;
+      box.hidden = false;
+    });
+  </script>
 </body>
 </html>

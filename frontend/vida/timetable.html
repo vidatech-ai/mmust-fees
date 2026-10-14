@@ -10,16 +10,221 @@
   <link rel="stylesheet" href="../src/css/main.css">
   <link rel="stylesheet" href="../src/css/student.css">
   <link rel="stylesheet" href="../src/css/admin.css?v=5">
+  <link rel="stylesheet" href="../src/css/timetable.css?v=1">
 </head>
 <body data-page="timetable">
-  <div id="content" class="ad-wrap">
+  <div id="content" class="ad-wrap wide tt-wrap">
     <h1 class="page-title">Timetable</h1>
+    <p id="msg" class="fm-msg" role="alert" hidden></p>
+
     <section class="fm-card">
-      <h2>Not set up yet</h2>
-      <p class="fm-hint">Students currently see "The admin will share the timetable here soon." Publishing tools will be added once the timetable format is decided.</p>
+      <div class="tt-top">
+        <h2 id="sessTitle">Weekly classes</h2>
+        <button type="button" id="addClass" class="fm-save">Add class</button>
+      </div>
+      <p class="fm-hint">Classes belong to the current semester set in Settings. Leave "Year of study" on All years to show a class to every student. Click a class to edit or delete it. You are warned before saving a clash of venue, lecturer or students.</p>
+      <div class="tt-legend" id="legend"></div>
+      <div id="grid"></div>
+      <div id="days" class="tt-days"></div>
     </section>
+
+    <section class="fm-card">
+      <div class="tt-top">
+        <h2>Key dates</h2>
+        <button type="button" id="addEvent" class="fm-save green">Add key date</button>
+      </div>
+      <p class="fm-hint">Semester start and end, CATs, exams, holidays and other dates. Students see them below their weekly timetable.</p>
+      <div id="events"></div>
+    </section>
+
+    <dialog id="classDlg" class="dlg">
+      <form id="classForm">
+        <h2 id="classTitle"></h2>
+        <p id="classErr" class="fm-msg bad" hidden></p>
+        <div class="fm-grid">
+          <div class="fm-field"><label for="cDay">Day</label>
+            <select id="cDay"><option value="1">Monday</option><option value="2">Tuesday</option><option value="3">Wednesday</option><option value="4">Thursday</option><option value="5">Friday</option><option value="6">Saturday</option><option value="7">Sunday</option></select></div>
+          <div class="fm-field"><label for="cType">Type</label>
+            <select id="cType"><option value="lecture">Lecture</option><option value="practical">Practical</option><option value="tutorial">Tutorial</option><option value="clinical">Clinical</option><option value="cat">CAT</option><option value="exam">Exam</option></select></div>
+          <div class="fm-field"><label for="cStart">Start time</label><input id="cStart" type="time" required></div>
+          <div class="fm-field"><label for="cEnd">End time</label><input id="cEnd" type="time" required></div>
+          <div class="fm-field"><label for="cCode">Unit code</label><input id="cCode" maxlength="30" placeholder="e.g. PML 212"></div>
+          <div class="fm-field"><label for="cYear">Year of study</label>
+            <select id="cYear"><option value="">All years</option><option value="1">Year 1</option><option value="2">Year 2</option><option value="3">Year 3</option><option value="4">Year 4</option><option value="5">Year 5</option><option value="6">Year 6</option></select></div>
+          <div class="fm-field fm-full"><label for="cName">Unit name</label><input id="cName" maxlength="150" required></div>
+          <div class="fm-field"><label for="cLecturer">Lecturer</label><input id="cLecturer" maxlength="120"></div>
+          <div class="fm-field"><label for="cVenue">Venue</label><input id="cVenue" maxlength="120"></div>
+        </div>
+        <div class="dlg-actions">
+          <button type="button" id="classDelete" class="btn-ghost" hidden>Delete</button>
+          <button type="button" id="classCancel" class="btn-ghost">Cancel</button>
+          <button type="submit" class="fm-save">Save</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="eventDlg" class="dlg">
+      <form id="eventForm">
+        <h2 id="eventTitleH"></h2>
+        <p id="eventErr" class="fm-msg bad" hidden></p>
+        <div class="fm-grid">
+          <div class="fm-field fm-full"><label for="eTitle">Title</label><input id="eTitle" maxlength="150" required placeholder="e.g. CAT 1 - Year 2"></div>
+          <div class="fm-field"><label for="eKind">Type</label>
+            <select id="eKind"><option value="semester">Semester start / end</option><option value="cat">CAT</option><option value="exam">Exam</option><option value="holiday">Holiday</option><option value="event">Other event</option></select></div>
+          <div class="fm-field"><label for="eYear">Year of study</label>
+            <select id="eYear"><option value="">All years</option><option value="1">Year 1</option><option value="2">Year 2</option><option value="3">Year 3</option><option value="4">Year 4</option><option value="5">Year 5</option><option value="6">Year 6</option></select></div>
+          <div class="fm-field"><label for="eDate">Date</label><input id="eDate" type="date" required></div>
+          <div class="fm-field"><label for="eEnd">End date (optional)</label><input id="eEnd" type="date"></div>
+          <div class="fm-field fm-full"><label for="eDetails">Details (optional)</label><input id="eDetails" maxlength="500"></div>
+        </div>
+        <div class="dlg-actions">
+          <button type="button" id="eventCancel" class="btn-ghost">Cancel</button>
+          <button type="submit" class="fm-save">Save</button>
+        </div>
+      </form>
+    </dialog>
   </div>
+
   <script src="../src/js/config.js"></script>
   <script src="../src/js/admin.js"></script>
+  <script src="../src/js/timetable-grid.js"></script>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const msg = $("msg"), classDlg = $("classDlg"), eventDlg = $("eventDlg");
+    let data = { session: {}, classes: [], events: [] }, editClass = null, editEvent = null;
+
+    function show(text, ok) {
+      msg.textContent = text;
+      msg.className = "fm-msg " + (ok ? "ok" : "bad");
+      msg.hidden = false;
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+    function today() {
+      const d = new Date(), z = (n) => String(n).padStart(2, "0");
+      return d.getFullYear() + "-" + z(d.getMonth() + 1) + "-" + z(d.getDate());
+    }
+
+    Object.keys(tt.TYPE_LABEL).forEach((k) => $("legend").appendChild(tt.el("span", "tt-" + k, tt.TYPE_LABEL[k])));
+
+    function render() {
+      const s = data.session;
+      $("sessTitle").textContent = s.academic_year && s.semester ? "Weekly classes - Semester " + s.semester + " " + s.academic_year : "Weekly classes";
+      const empty = s.academic_year ? "No classes added yet. Click Add class." : "Set the academic year and semester in Settings first.";
+      tt.renderGrid($("grid"), data.classes, { today: tt.todayDow(), onSelect: openClass, emptyText: empty });
+      tt.renderDays($("days"), data.classes, { today: tt.todayDow(), onSelect: openClass });
+      tt.renderEvents($("events"), data.events, {
+        emptyText: "No key dates yet.",
+        actions: (e) => {
+          const box = tt.el("div", "tt-actions");
+          const ed = tt.el("button", "act", "Edit"); ed.type = "button"; ed.addEventListener("click", () => openEvent(e));
+          const del = tt.el("button", "act warn", "Delete"); del.type = "button"; del.addEventListener("click", () => removeEvent(e));
+          box.append(ed, del);
+          return box;
+        },
+      });
+    }
+    async function load() { data = await admin.api("/admin/timetable"); render(); }
+
+    // ----- classes -----
+    function openClass(c) {
+      editClass = c || null;
+      $("classTitle").textContent = c ? "Edit class" : "Add class";
+      $("cDay").value = c ? c.day_of_week : 1;
+      $("cType").value = c ? c.class_type : "lecture";
+      $("cStart").value = c ? c.start_time : "08:00";
+      $("cEnd").value = c ? c.end_time : "10:00";
+      $("cCode").value = c ? (c.unit_code || "") : "";
+      $("cName").value = c ? c.unit_name : "";
+      $("cLecturer").value = c ? (c.lecturer || "") : "";
+      $("cVenue").value = c ? (c.venue || "") : "";
+      $("cYear").value = c && c.year_of_study ? String(c.year_of_study) : "";
+      $("classDelete").hidden = !c;
+      $("classErr").hidden = true;
+      classDlg.showModal();
+    }
+    $("addClass").addEventListener("click", () => openClass(null));
+    $("classCancel").addEventListener("click", () => classDlg.close());
+
+    $("classForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      $("classErr").hidden = true;
+      const body = {
+        day_of_week: parseInt($("cDay").value, 10), start_time: $("cStart").value, end_time: $("cEnd").value,
+        unit_code: $("cCode").value, unit_name: $("cName").value, lecturer: $("cLecturer").value, venue: $("cVenue").value,
+        class_type: $("cType").value, year_of_study: $("cYear").value ? parseInt($("cYear").value, 10) : null,
+      };
+      try {
+        const chk = await admin.api("/admin/timetable/classes/check", {
+          method: "POST", body: JSON.stringify({ ...body, exclude_id: editClass ? editClass.id : null }),
+        });
+        if (chk.clashes.length && !confirm("Clash found:\n\n- " + chk.clashes.join("\n- ") + "\n\nSave anyway?")) return;
+        if (editClass) await admin.api("/admin/timetable/classes/" + editClass.id, { method: "PUT", body: JSON.stringify(body) });
+        else await admin.api("/admin/timetable/classes", { method: "POST", body: JSON.stringify(body) });
+        classDlg.close();
+        show("Saved.", true);
+        await load();
+      } catch (err) {
+        $("classErr").textContent = err.message;
+        $("classErr").hidden = false;
+      }
+    });
+
+    $("classDelete").addEventListener("click", async () => {
+      if (!editClass || !confirm("Delete " + editClass.unit_name + " on " + tt.DAYS[editClass.day_of_week - 1] + "?")) return;
+      try {
+        await admin.api("/admin/timetable/classes/" + editClass.id, { method: "DELETE" });
+        classDlg.close();
+        show("Deleted.", true);
+        await load();
+      } catch (err) { $("classErr").textContent = err.message; $("classErr").hidden = false; }
+    });
+
+    // ----- key dates -----
+    function openEvent(ev) {
+      editEvent = ev || null;
+      $("eventTitleH").textContent = ev ? "Edit key date" : "Add key date";
+      $("eTitle").value = ev ? ev.title : "";
+      $("eKind").value = ev ? ev.kind : "event";
+      $("eYear").value = ev && ev.year_of_study ? String(ev.year_of_study) : "";
+      $("eDate").value = ev ? ev.event_date : today();
+      $("eEnd").value = ev && ev.end_date ? ev.end_date : "";
+      $("eDetails").value = ev ? (ev.details || "") : "";
+      $("eventErr").hidden = true;
+      eventDlg.showModal();
+    }
+    $("addEvent").addEventListener("click", () => openEvent(null));
+    $("eventCancel").addEventListener("click", () => eventDlg.close());
+
+    $("eventForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      $("eventErr").hidden = true;
+      const body = {
+        title: $("eTitle").value, kind: $("eKind").value, event_date: $("eDate").value,
+        end_date: $("eEnd").value || null, details: $("eDetails").value,
+        year_of_study: $("eYear").value ? parseInt($("eYear").value, 10) : null,
+      };
+      try {
+        if (editEvent) await admin.api("/admin/timetable/events/" + editEvent.id, { method: "PUT", body: JSON.stringify(body) });
+        else await admin.api("/admin/timetable/events", { method: "POST", body: JSON.stringify(body) });
+        eventDlg.close();
+        show("Saved.", true);
+        await load();
+      } catch (err) {
+        $("eventErr").textContent = err.message;
+        $("eventErr").hidden = false;
+      }
+    });
+
+    async function removeEvent(ev) {
+      if (!confirm("Delete \"" + ev.title + "\"?")) return;
+      try {
+        await admin.api("/admin/timetable/events/" + ev.id, { method: "DELETE" });
+        show("Deleted.", true);
+        await load();
+      } catch (err) { show(err.message, false); }
+    }
+
+    load().catch((e) => show(e.message, false));
+  </script>
 </body>
 </html>

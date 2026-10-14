@@ -19,6 +19,7 @@
     .main{margin-top:76px!important;min-height:calc(100vh - 76px)}
     .page-grid{min-height:calc(100vh - 76px)}
     .chat-wrap{height:calc(100vh - 76px)}
+    .site-note{padding:14px 20px;text-align:center;font-size:12.5px;color:#55607a;background:#fff;border-top:1px solid #dfe3ee;margin:0}
     @media (max-width:900px){.top-brand{width:auto;padding:0 6px 0 12px}.top-brand img{height:46px!important}.top-school{font-size:17px;white-space:normal;margin:0 8px}}
   `;
   const styleEl = document.createElement("style");
@@ -59,6 +60,10 @@
     <main class="main" id="main"></main>`;
   document.body.prepend(...shell.children);
   document.getElementById("main").appendChild(content);
+  const siteNote = document.createElement("p");
+  siteNote.className = "site-note";
+  siteNote.textContent = "This site is for Clinical Medicine students only.";
+  document.getElementById("main").appendChild(siteNote);
 
   // ----- school name: shown instantly from the last visit, then refreshed -----
   const topSchool = document.getElementById("topSchool");

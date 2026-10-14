@@ -8,6 +8,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../src/css/student.css">
   <link rel="stylesheet" href="../src/css/medium.css?v=9">
+  <link rel="stylesheet" href="../src/css/timetable.css?v=1">
 </head>
 <body data-page="dashboard">
   <div id="content" class="page-grid">
@@ -16,6 +17,18 @@
       <div class="welcome">
         <h2 id="welcome">Welcome back</h2>
         <p>We're delighted to have you. Use the side menu to view your fee statement, read messages and check your timetable.</p>
+      </div>
+
+      <div class="dash-tt">
+        <div class="row-head">
+          <span class="crumb" style="margin:0">This week</span>
+          <a href="timetable.html">Full timetable</a>
+        </div>
+        <div id="dashNext" class="tt-next" hidden></div>
+        <div id="dashDays"></div>
+        <p id="dashEmpty" class="tt-empty" hidden>The admin has not posted the weekly timetable yet.</p>
+        <h4 class="tt-sub" id="dashEvH" hidden>Upcoming dates</h4>
+        <div id="dashEvents"></div>
       </div>
     </section>
 
@@ -57,6 +70,7 @@
 
   <script src="../src/js/config.js"></script>
   <script src="../src/js/student.js"></script>
+  <script src="../src/js/timetable-grid.js"></script>
   <script>
     portal.ready.then((me) => {
       document.getElementById("welcome").textContent = "Welcome back, " + me.first;
@@ -73,6 +87,22 @@
       }
     }).catch(() => {
       document.getElementById("balance").textContent = "Unavailable";
+    });
+
+    portal.api("/student/timetable").then((d) => {
+      const now = new Date(), today = tt.todayDow();
+      const nxt = tt.nextClass(d.classes, now);
+      if (nxt) { const n = document.getElementById("dashNext"); n.textContent = tt.describeNext(nxt, now); n.hidden = false; }
+      tt.renderDays(document.getElementById("dashDays"), d.classes, { today: today });
+      if (!d.classes.length) document.getElementById("dashEmpty").hidden = false;
+      const z = (x) => String(x).padStart(2, "0");
+      const ts = now.getFullYear() + "-" + z(now.getMonth() + 1) + "-" + z(now.getDate());
+      const up = d.events.filter((e) => (e.end_date || e.event_date) >= ts).slice(0, 3);
+      if (up.length) { document.getElementById("dashEvH").hidden = false; tt.renderEvents(document.getElementById("dashEvents"), up, {}); }
+    }).catch(() => {
+      const e = document.getElementById("dashEmpty");
+      e.textContent = "Could not load the timetable.";
+      e.hidden = false;
     });
   </script>
 </body>

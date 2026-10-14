@@ -114,3 +114,27 @@ alter table payments enable row level security;
 alter table audit_log enable row level security;
 alter table messages enable row level security;
 alter table timetable_entries enable row level security;
+
+-- Timetable (added Oct 2026)
+create table if not exists timetable_classes (
+  id uuid primary key default gen_random_uuid(),
+  academic_year text not null,
+  semester int not null,
+  day_of_week int not null check (day_of_week between 1 and 7),
+  start_time time not null,
+  end_time time not null,
+  unit_code text,
+  unit_name text not null,
+  lecturer text,
+  venue text,
+  class_type text not null default 'lecture',
+  year_of_study int,
+  created_at timestamptz default now(),
+  check (end_time > start_time)
+);
+alter table timetable_classes enable row level security;
+
+alter table timetable_entries add column if not exists kind text default 'event';
+alter table timetable_entries add column if not exists event_date date;
+alter table timetable_entries add column if not exists end_date date;
+alter table timetable_entries add column if not exists year_of_study int;

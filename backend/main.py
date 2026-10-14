@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from core.config import FRONTEND_ORIGIN
+from api import timetable as timetable_api
 from api.auth import router as auth_router
 from api.students import router as students_router
 from api.messages import router as messages_router
@@ -33,6 +34,7 @@ app.include_router(admin_students_router)
 app.include_router(settings_router)
 app.include_router(statement_router)
 app.include_router(photo_router)
+app.include_router(timetable_api.router)
 
 
 @app.get("/health")
