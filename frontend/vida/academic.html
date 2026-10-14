@@ -32,7 +32,7 @@
         <h2>Student transcript</h2>
         <button type="button" id="addRec" class="fm-save green" disabled>Add result</button>
       </div>
-      <p class="fm-hint">Choose a student, then add results per unit. If you leave the grade empty it is worked out from the marks (A 70+, B 60+, C 50+, D 40+, E below 40).</p>
+      <p class="fm-hint">Choose a student, then add results per unit. If you leave the grade empty it is worked out from the marks (A 70+, B 60+, C 50+, D 40+, E below 40). Students can view and download their transcript but cannot edit it.</p>
       <div class="ac-bar">
         <select id="stSel"><option value="">Choose a student...</option></select>
       </div>
@@ -121,6 +121,8 @@
       wrap.appendChild(t);
       return wrap;
     }
+    const cell = (v) => (v === null || v === undefined || v === "" ? "-" : v);
+    const fail = (id) => (err) => { $(id).textContent = err.message; $(id).hidden = false; };
 
     // ----- units -----
     function renderUnits() {
@@ -133,7 +135,7 @@
       }
       box.appendChild(table(["Year", "Code", "Unit", "Credit hours", ""],
         data.units.map((u) => ({
-          cells: ["Year " + u.year_of_study, u.unit_code || "-", u.unit_name, u.credit_hours === null ? "-" : u.credit_hours],
+          cells: ["Year " + u.year_of_study, cell(u.unit_code), u.unit_name, cell(u.credit_hours)],
           onEdit: () => openUnit(u),
         })), [3]));
     }
@@ -165,7 +167,7 @@
         unitDlg.close();
         show("Saved.", true);
         await loadUnits();
-      } catch (err) { $("unitErr").textContent = err.message; $("unitErr").hidden = false; }
+      } catch (err) { fail("unitErr")(err); }
     });
     $("unitDelete").addEventListener("click", async () => {
       if (!editUnit || !confirm("Delete " + editUnit.unit_name + "?")) return;
@@ -174,7 +176,7 @@
         unitDlg.close();
         show("Deleted.", true);
         await loadUnits();
-      } catch (err) { $("unitErr").textContent = err.message; $("unitErr").hidden = false; }
+      } catch (err) { fail("unitErr")(err); }
     });
 
     // ----- transcript -----
@@ -195,7 +197,7 @@
         box.appendChild(h("h4", "ac-group", "Year " + yr + " - Semester " + sem + " - " + ay));
         box.appendChild(table(["Code", "Unit", "Marks", "Grade", ""],
           groups[k].map((r) => ({
-            cells: [r.unit_code || "-", r.unit_name, r.marks === null ? "-" : r.marks, r.grade || "-"],
+            cells: [cell(r.unit_code), r.unit_name, cell(r.marks), cell(r.grade)],
             onEdit: () => openRec(r),
           })), [2, 3]));
       });
@@ -241,7 +243,7 @@
         recDlg.close();
         show("Saved.", true);
         await loadRecords();
-      } catch (err) { $("recErr").textContent = err.message; $("recErr").hidden = false; }
+      } catch (err) { fail("recErr")(err); }
     });
     $("recDelete").addEventListener("click", async () => {
       if (!editRec || !confirm("Delete " + editRec.unit_name + " from the transcript?")) return;
@@ -250,7 +252,7 @@
         recDlg.close();
         show("Deleted.", true);
         await loadRecords();
-      } catch (err) { $("recErr").textContent = err.message; $("recErr").hidden = false; }
+      } catch (err) { fail("recErr")(err); }
     });
 
     // ----- start -----

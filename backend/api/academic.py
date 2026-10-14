@@ -200,7 +200,7 @@ def delete_record(record_id: uuid.UUID, admin_id: str = Depends(current_admin)):
     return {"ok": True}
 
 
-# ---------- student ----------
+# ---------- student (read-only) ----------
 
 @router.get("/student/academic")
 def student_academic(student_id: str = Depends(current_student)):

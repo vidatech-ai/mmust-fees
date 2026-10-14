@@ -19,7 +19,13 @@
     <h3 class="tt-h" id="unitsTitle">Current semester units</h3>
     <div id="units"></div>
 
-    <h3 class="tt-h">Transcript</h3>
+    <div class="tt-top">
+      <h3 class="tt-h">Transcript</h3>
+      <div class="ac-bar" id="dl" hidden>
+        <button type="button" id="dlPdf" class="fm-save">Download PDF</button>
+        <button type="button" id="dlCsv" class="fm-save green">Download CSV</button>
+      </div>
+    </div>
     <div id="transcript"></div>
   </div>
 
@@ -33,6 +39,7 @@
       if (text !== undefined && text !== null) e.textContent = text;
       return e;
     };
+    const esc = (v) => String(v).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
     function table(headers, rows, numCols) {
       const wrap = h("div", "ac-wrap"), t = h("table", "ac-table");
       const tr = h("tr");
@@ -48,8 +55,60 @@
       wrap.appendChild(t);
       return wrap;
     }
+    const cell = (v) => (v === null || v === undefined || v === "" ? "-" : v);
 
-    portal.api("/student/academic").then((d) => {
+    let me = {}, records = [];
+
+    function groupRecords(list) {
+      const groups = {}, order = [];
+      list.forEach((r) => {
+        const k = r.academic_year + "|" + r.semester + "|" + r.year_of_study;
+        if (!groups[k]) { groups[k] = []; order.push(k); }
+        groups[k].push(r);
+      });
+      return { groups, order };
+    }
+
+    function downloadCsv() {
+      const q = (v) => '"' + String(v === null || v === undefined ? "" : v).replace(/"/g, '""') + '"';
+      const lines = [["Academic year", "Semester", "Year of study", "Unit code", "Unit name", "Marks", "Grade"].map(q).join(",")];
+      records.forEach((r) => lines.push([r.academic_year, r.semester, r.year_of_study, r.unit_code, r.unit_name, r.marks, r.grade].map(q).join(",")));
+      const blob = new Blob(["\ufeff" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "transcript-" + (me.reg_number || "student").replace(/[^\w-]+/g, "_") + ".csv";
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    }
+
+    function downloadPdf() {
+      const { groups, order } = groupRecords(records);
+      let body = "";
+      order.forEach((k) => {
+        const [ay, sem, yr] = k.split("|");
+        body += "<h3>Year " + esc(yr) + " - Semester " + esc(sem) + " - " + esc(ay) + "</h3><table><tr><th>Code</th><th>Unit</th><th class='n'>Marks</th><th class='n'>Grade</th></tr>";
+        groups[k].forEach((r) => {
+          body += "<tr><td>" + esc(cell(r.unit_code)) + "</td><td>" + esc(r.unit_name) + "</td><td class='n'>" + esc(cell(r.marks)) + "</td><td class='n'>" + esc(cell(r.grade)) + "</td></tr>";
+        });
+        body += "</table>";
+      });
+      const school = (me.session && me.session.school_name) || "";
+      const doc = "<!DOCTYPE html><html><head><meta charset='utf-8'><title>Transcript - " + esc(me.reg_number || "") + "</title><style>" +
+        "body{font-family:Arial,sans-serif;color:#222;margin:32px}h1{font-size:20px;margin:0}h2{font-size:15px;font-weight:normal;margin:4px 0 18px}" +
+        "h3{font-size:14px;color:#0b3a7e;margin:20px 0 6px}table{width:100%;border-collapse:collapse;font-size:13px}" +
+        "th,td{border:1px solid #ccd;padding:6px 8px;text-align:left}th{background:#f0f3fa}.n{text-align:right}</style></head><body>" +
+        "<h1>" + esc(school) + " - Academic Transcript</h1><h2>" + esc(me.name || "") + " | " + esc(me.reg_number || "") + "</h2>" + body +
+        "<script>window.onload=function(){window.print()}<\/script></body></html>";
+      const w = window.open("", "_blank");
+      if (!w) { alert("Allow pop-ups for this site, then try again."); return; }
+      w.document.open(); w.document.write(doc); w.document.close();
+    }
+
+    $("dlCsv").addEventListener("click", downloadCsv);
+    $("dlPdf").addEventListener("click", downloadPdf);
+
+    Promise.all([portal.api("/student/academic"), portal.api("/student/me")]).then(([d, m]) => {
+      me = m || {};
       const s = d.session || {};
       if (s.academic_year && s.semester) {
         $("unitsTitle").textContent = "Units - Semester " + s.semester + " " + s.academic_year + (d.year_of_study ? " (Year " + d.year_of_study + ")" : "");
@@ -61,27 +120,24 @@
         let total = 0;
         const rows = d.units.map((x) => {
           if (x.credit_hours) total += Number(x.credit_hours);
-          return [x.unit_code || "-", x.unit_name, x.credit_hours === null ? "-" : x.credit_hours];
+          return [cell(x.unit_code), x.unit_name, cell(x.credit_hours)];
         });
         u.appendChild(table(["Code", "Unit", "Credit hours"], rows, [2]));
         if (total) u.appendChild(h("p", "ac-empty", "Total credit hours: " + total));
       }
 
+      records = d.records;
       const t = $("transcript");
-      if (!d.records.length) {
+      if (!records.length) {
         t.appendChild(h("p", "ac-empty", "No results have been posted to your transcript yet."));
         return;
       }
-      const groups = {};
-      d.records.forEach((r) => {
-        const k = r.academic_year + "|" + r.semester + "|" + r.year_of_study;
-        (groups[k] = groups[k] || []).push(r);
-      });
-      Object.keys(groups).forEach((k) => {
+      $("dl").hidden = false;
+      const { groups, order } = groupRecords(records);
+      order.forEach((k) => {
         const [ay, sem, yr] = k.split("|");
         t.appendChild(h("h4", "ac-group", "Year " + yr + " - Semester " + sem + " - " + ay));
-        const rows = groups[k].map((r) => [r.unit_code || "-", r.unit_name, r.marks === null ? "-" : r.marks, r.grade || "-"]);
-        t.appendChild(table(["Code", "Unit", "Marks", "Grade"], rows, [2, 3]));
+        t.appendChild(table(["Code", "Unit", "Marks", "Grade"], groups[k].map((r) => [cell(r.unit_code), r.unit_name, cell(r.marks), cell(r.grade)]), [2, 3]));
       });
     }).catch((e) => {
       $("acErr").textContent = e.message;
