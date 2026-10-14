@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="../src/css/student.css">
   <link rel="stylesheet" href="../src/css/medium.css?v=9">
   <link rel="stylesheet" href="../src/css/timetable.css?v=1">
+  <link rel="stylesheet" href="../src/css/academic.css?v=1">
 </head>
 <body data-page="dashboard">
   <div id="content" class="page-grid">
@@ -29,6 +30,14 @@
         <p id="dashEmpty" class="tt-empty" hidden>The admin has not posted the weekly timetable yet.</p>
         <h4 class="tt-sub" id="dashEvH" hidden>Upcoming dates</h4>
         <div id="dashEvents"></div>
+      </div>
+
+      <div class="dash-tt">
+        <div class="row-head">
+          <span class="crumb" style="margin:0">Units this semester</span>
+          <a href="academic.html">Full transcript</a>
+        </div>
+        <div id="dashUnitsBody"></div>
       </div>
     </section>
 
@@ -71,6 +80,22 @@
   <script src="../src/js/config.js"></script>
   <script src="../src/js/student.js"></script>
   <script src="../src/js/timetable-grid.js"></script>
+  <script>
+    portal.api("/student/academic").then(function (d) {
+      var b = document.getElementById("dashUnitsBody");
+      if (!d.units.length) { var p = document.createElement("p"); p.className = "ac-empty"; p.textContent = "The admin has not posted your units for this semester yet."; b.appendChild(p); return; }
+      var w = document.createElement("div"); w.className = "ac-wrap";
+      var t = document.createElement("table"); t.className = "ac-table";
+      var hd = t.createTHead().insertRow();
+      ["Code", "Unit", "Credit hours"].forEach(function (x, i) { var c = document.createElement("th"); if (i === 2) c.className = "num"; c.textContent = x; hd.appendChild(c); });
+      var tb = t.createTBody();
+      d.units.forEach(function (u) {
+        var r = tb.insertRow();
+        [u.unit_code || "-", u.unit_name, u.credit_hours === null || u.credit_hours === undefined ? "-" : u.credit_hours].forEach(function (x, i) { var c = r.insertCell(); if (i === 2) c.className = "num"; c.textContent = x; });
+      });
+      w.appendChild(t); b.appendChild(w);
+    }).catch(function () { document.getElementById("dashUnitsBody").textContent = "Could not load units."; });
+  </script>
   <script>
     portal.ready.then((me) => {
       document.getElementById("welcome").textContent = "Welcome back, " + me.first;
