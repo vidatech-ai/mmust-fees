@@ -18,17 +18,17 @@ body { font-family: "Poppins", system-ui, -apple-system, "Segoe UI", sans-serif;
   background: #333 url("../../assets/bg.jpg") center / cover no-repeat;
 }
 .hero::after { content: ""; position: absolute; inset: 0; background: rgba(0,0,0,.18); }
-.hero h2 { position: relative; z-index: 1; color: #fff; font-size: 1.6rem; font-weight: 600; letter-spacing: .5px; text-align: center; padding: 0 20px; }
+.hero h2 { position: relative; z-index: 1; color: #fff; font-size: 1.85rem; font-weight: 600; letter-spacing: .5px; text-align: center; padding: 0 20px; }
 
 .panel { flex: 1; background: var(--panel-bg); display: flex; align-items: center; justify-content: center; padding: 32px 20px; }
 .panel-inner { width: 100%; max-width: 480px; text-align: center; }
-.panel-inner h1 { color: var(--blue); font-size: 1.8rem; font-weight: 600; }
-.sub { font-size: .86rem; color: var(--text); margin: 2px 0 14px; }
+.panel-inner h1 { color: var(--blue); font-size: 2.05rem; font-weight: 600; }
+.sub { font-size: .98rem; color: var(--text); margin: 2px 0 14px; }
 
 .card { background: #fff; border-radius: 4px; padding: 30px 40px 26px; text-align: left; box-shadow: 0 6px 18px rgba(20,30,60,.10); }
-.card label { display: block; font-size: .84rem; font-weight: 600; margin-bottom: 4px; }
+.card label { display: block; font-size: .96rem; font-weight: 600; margin-bottom: 4px; }
 .card input[type="text"], .card input[type="password"] {
-  width: 100%; height: 40px; padding: 0 10px; font: inherit; font-size: .86rem;
+  width: 100%; height: 44px; padding: 0 10px; font: inherit; font-size: .98rem;
   border: 1px solid var(--border); border-radius: 3px; background: #fff; outline: none; margin-bottom: 10px;
 }
 .card input:focus { border-color: var(--blue-btn); box-shadow: 0 0 0 2px rgba(59,130,232,.15); }
@@ -36,31 +36,31 @@ body { font-family: "Poppins", system-ui, -apple-system, "Segoe UI", sans-serif;
 .pw-wrap input { padding-right: 38px !important; }
 .pw-wrap button { position: absolute; right: 6px; top: 0; height: 36px; width: 30px; border: 0; background: none; color: var(--muted); cursor: pointer; }
 
-.row { display: flex; justify-content: space-between; align-items: center; font-size: .8rem; margin: 2px 0 12px; }
-.row .check { display: flex; align-items: center; gap: 5px; font-weight: 400; margin: 0; font-size: .8rem; cursor: pointer; }
+.row { display: flex; justify-content: space-between; align-items: center; font-size: .92rem; margin: 2px 0 12px; }
+.row .check { display: flex; align-items: center; gap: 5px; font-weight: 400; margin: 0; font-size: .92rem; cursor: pointer; }
 .row a { color: var(--blue); text-decoration: none; font-weight: 500; }
 .row a:hover { text-decoration: underline; }
 
-.btn { width: 100%; height: 42px; border: 0; border-radius: 3px; background: var(--blue-btn); color: #fff; font: inherit; font-size: .9rem; font-weight: 500; cursor: pointer; transition: background .15s; }
+.btn { width: 100%; height: 46px; border: 0; border-radius: 3px; background: var(--blue-btn); color: #fff; font: inherit; font-size: 1.02rem; font-weight: 500; cursor: pointer; transition: background .15s; }
 .btn:hover { background: #2f72d4; }
 .btn:disabled { opacity: .65; cursor: not-allowed; }
 
-.msg { font-size: .82rem; padding: 8px 10px; border-radius: 3px; margin-bottom: 10px; }
+.msg { font-size: .94rem; padding: 8px 10px; border-radius: 3px; margin-bottom: 10px; }
 .msg[hidden] { display: none; }
 .msg.error { background: #fdecec; color: #b42318; }
 .msg.info { background: #eaf3ff; color: #1d5fb4; }
 
-.foot-note { font-size: .82rem; margin-top: 18px; }
+.foot-note { font-size: .94rem; margin-top: 18px; }
 .blue { color: var(--blue); font-weight: 600; }
-.copy { font-size: .74rem; color: var(--blue); font-weight: 500; margin-top: 14px; }
+.copy { font-size: .85rem; color: var(--blue); font-weight: 500; margin-top: 14px; }
 
 @media (max-width: 800px) {
   .hero { display: none; }
   .card { padding: 24px 22px; }
 }
 
-.panel-inner .logo { display: block; width: 108px; height: auto; margin: 0 auto 10px; }
+.panel-inner .logo { display: block; width: 124px; height: auto; margin: 0 auto 10px; }
 
 .notice { background: #fff7e6; border: 1px solid #f5d28a; color: #7a4b00; font-size: .72rem; line-height: 1.5; text-align: left; padding: 10px 12px; border-radius: 3px; margin-bottom: 12px; }
 
-.panel-inner .logo { width: 138px; }
+.panel-inner .logo { width: 158px; }
