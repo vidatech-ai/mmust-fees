@@ -57,6 +57,7 @@
     </header>
     <aside class="sidebar">
       <nav class="nav">${NAV.map(([k, label, href, ic]) => `<a href="${href}" class="${k === page ? "active" : ""}">${ic}<span>${label}</span></a>`).join("")}</nav>
+      <p style="padding:14px 16px;font-size:.72rem;color:#6b7690;line-height:1.4">Copyright &copy; 2026- ABNO Softwares International</p>
     </aside>
     <main class="main" id="main"></main>`;
   document.body.prepend(...shell.children);
