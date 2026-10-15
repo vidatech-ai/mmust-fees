@@ -1,6 +1,7 @@
 import hashlib
 import io
 import os
+import secrets
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Response
@@ -145,16 +146,27 @@ def make_slip(school, name, reg, amount, when, mode, invoice, receipt, slip_no, 
     return buf.getvalue()
 
 
-@router.get("/slip/{reference}")
-def slip(reference: str, sid: str = Depends(current_student)):
-    rows = (supabase.table("payments").select("*").eq("paystack_reference", reference)
-            .eq("student_id", sid).limit(1).execute().data)
-    if not rows:
-        raise HTTPException(404, "Payment not found")
-    p = rows[0]
-    if p["status"] != "success":
-        raise HTTPException(400, "A slip is only available for completed payments")
+PUBLIC_API = os.getenv("PUBLIC_API_URL", "https://mmust-fees-backend.onrender.com").rstrip("/")
 
+
+def _ensure_slip_no(p: dict) -> str:
+    if p.get("slip_no"):
+        return p["slip_no"]
+    for _ in range(10):
+        no = "SLP" + str(secrets.randbelow(9_000_000) + 1_000_000)
+        try:
+            supabase.table("payments").update({"slip_no": no}) \
+                .eq("id", p["id"]).is_("slip_no", "null").execute()
+        except Exception:
+            continue  # number already used by another slip, try again
+        row = supabase.table("payments").select("slip_no").eq("id", p["id"]).limit(1).execute().data
+        if row and row[0].get("slip_no"):
+            return row[0]["slip_no"]
+    raise HTTPException(500, "Could not create a slip number")
+
+
+def _build(p: dict) -> bytes:
+    sid = p["student_id"]
     st = supabase.table("students").select("name,reg_number").eq("id", sid).limit(1).execute().data[0]
     cfg = supabase.table("settings").select("school_name").eq("id", 1).limit(1).execute().data
     school = ((cfg[0].get("school_name") if cfg else "") or "").strip()
@@ -165,12 +177,31 @@ def slip(reference: str, sid: str = Depends(current_student)):
                .eq("term_id", p["term_id"]).eq("description", "STANDARD INVOICE").limit(1).execute().data)
         invoice = (inv[0].get("ref") if inv else "") or ""
 
-    no = _slip_no(reference)
-    amount = float(p["amount"])
-    pdf = make_slip(
-        school=school, name=st["name"], reg=st["reg_number"], amount=amount, when=_when(p),
+    no = _ensure_slip_no(p)
+    return make_slip(
+        school=school, name=st["name"], reg=st["reg_number"], amount=float(p["amount"]), when=_when(p),
         mode="M-Pesa", invoice=invoice, receipt="", slip_no=no,
-        qr_text=f"{school} | {no} | {reference} | {st['reg_number']} | KES {amount:,.2f}",
+        qr_text=f"{PUBLIC_API}/payments/slip/view/{no}",
     )
-    return Response(pdf, media_type="application/pdf",
+
+
+@router.get("/slip/view/{slip_no}")
+def view_slip(slip_no: str):
+    """Public: opened when someone scans the QR code. Shows the slip as it is."""
+    rows = supabase.table("payments").select("*").eq("slip_no", slip_no.strip().upper()).limit(1).execute().data
+    if not rows or rows[0]["status"] != "success":
+        raise HTTPException(404, "Slip not found")
+    return Response(_build(rows[0]), media_type="application/pdf",
+                    headers={"Content-Disposition": f'inline; filename="{slip_no}.pdf"'})
+
+
+@router.get("/slip/{reference}")
+def slip(reference: str, sid: str = Depends(current_student)):
+    rows = (supabase.table("payments").select("*").eq("paystack_reference", reference)
+            .eq("student_id", sid).limit(1).execute().data)
+    if not rows:
+        raise HTTPException(404, "Payment not found")
+    if rows[0]["status"] != "success":
+        raise HTTPException(400, "A slip is only available for completed payments")
+    return Response(_build(rows[0]), media_type="application/pdf",
                     headers={"Content-Disposition": f'attachment; filename="payment-slip-{reference}.pdf"'})
