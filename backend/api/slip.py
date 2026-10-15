@@ -165,17 +165,29 @@ def _ensure_slip_no(p: dict) -> str:
     raise HTTPException(500, "Could not create a slip number")
 
 
+def _ensure_invoice_no(p: dict) -> str:
+    if p.get("invoice_no"):
+        return p["invoice_no"]
+    for _ in range(10):
+        no = "SFI" + str(secrets.randbelow(900_000) + 100_000)
+        try:
+            supabase.table("payments").update({"invoice_no": no}) \
+                .eq("id", p["id"]).is_("invoice_no", "null").execute()
+        except Exception:
+            continue  # number already used, try again
+        row = supabase.table("payments").select("invoice_no").eq("id", p["id"]).limit(1).execute().data
+        if row and row[0].get("invoice_no"):
+            return row[0]["invoice_no"]
+    raise HTTPException(500, "Could not create an invoice number")
+
+
 def _build(p: dict) -> bytes:
     sid = p["student_id"]
     st = supabase.table("students").select("name,reg_number").eq("id", sid).limit(1).execute().data[0]
     cfg = supabase.table("settings").select("school_name").eq("id", 1).limit(1).execute().data
     school = ((cfg[0].get("school_name") if cfg else "") or "").strip()
 
-    invoice = ""
-    if p.get("term_id"):
-        inv = (supabase.table("fee_charges").select("ref").eq("student_id", sid)
-               .eq("term_id", p["term_id"]).eq("description", "STANDARD INVOICE").limit(1).execute().data)
-        invoice = (inv[0].get("ref") if inv else "") or ""
+    invoice = _ensure_invoice_no(p)
 
     no = _ensure_slip_no(p)
     return make_slip(
