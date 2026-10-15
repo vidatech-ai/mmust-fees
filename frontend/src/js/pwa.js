@@ -24,7 +24,7 @@
       : "Open this link in Safari, tap the Share button, then choose Add to Home Screen.");
   }
   if (!isMobile && isSafari) return only("In Safari, open the File menu and choose Add to Dock.");
-  if (!isMobile && isFirefox) return only("Firefox cannot install apps on laptops. Open this link in Chrome or Edge, or continue in the browser below.");
+  if (!isMobile && isFirefox) return only("Firefox cannot install apps on laptops. Open this link in Chrome or Edge instead.");
 
   window.addEventListener("beforeinstallprompt", function (e) { e.preventDefault(); deferred = e; });
   window.addEventListener("appinstalled", function () { btn.style.display = "none"; note.textContent = "Installed. Open C-Med MMUST from your home screen, desktop or start menu."; });
