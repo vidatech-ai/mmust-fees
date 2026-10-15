@@ -19,7 +19,7 @@ from core.security import current_student
 router = APIRouter(prefix="/payments", tags=["payment-slip"])
 
 LOGO = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "assets", "logo.jpg")
-POWERED_BY = "Vidatech"          # change this text, or set to "" to hide the line
+POWERED_BY = "Jiunge"          # change this text, or set to "" to hide the line
 SERVICE_TYPE = "Tuition Fees"
 INK = colors.HexColor("#222222")
 MUTED = colors.HexColor("#555555")
