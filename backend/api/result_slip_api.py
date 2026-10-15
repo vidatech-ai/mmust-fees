@@ -139,3 +139,42 @@ def curriculum(academic_year: str, semester: int, student_id: str = Depends(curr
             .limit(500).execute().data)
     rows.sort(key=lambda u: (u["year_of_study"], u.get("unit_code") or "", u["unit_name"]))
     return {"units": rows}
+
+
+# ---------- on-page slip ----------
+
+@router.get("/student/result-slip/page")
+def slip_page(academic_year: str, semester: int, student_id: str = Depends(current_student)):
+    import base64
+    from reportlab.graphics.barcode import qr
+    from reportlab.graphics.shapes import Drawing
+
+    ay = academic_year.strip()
+    st = supabase.table("students").select("name,reg_number,admission_year").eq("id", student_id).limit(1).execute().data
+    if not st:
+        raise HTTPException(404, "Student not found")
+    st = st[0]
+    yos, units = _rows(student_id, ay, semester)
+    cfg = supabase.table("settings").select("*").eq("id", 1).limit(1).execute().data
+    cfg = cfg[0] if cfg else {}
+
+    qr_text = f"{PUBLIC_API}/result-slip/view/{student_id}?academic_year={quote(ay)}&semester={semester}"
+    w = qr.QrCodeWidget(qr_text)
+    b = w.getBounds()
+    size = 120
+    d = Drawing(size, size, transform=[size / (b[2] - b[0]), 0, 0, size / (b[3] - b[1]), 0, 0])
+    d.add(w)
+    svg = d.asString("svg")
+    if isinstance(svg, str):
+        svg = svg.encode()
+    qr_uri = "data:image/svg+xml;base64," + base64.b64encode(svg).decode()
+
+    return {
+        "school": cfg.get("school_name") or "", "location": cfg.get("location") or "",
+        "phone": cfg.get("phone") or "",
+        "name": st["name"], "programme": cfg.get("programme") or "",
+        "department": cfg.get("department") or "", "faculty": cfg.get("school") or "",
+        "reg": st["reg_number"], "admission_year": st.get("admission_year") or "",
+        "year_of_study": yos, "semester": semester, "academic_year": ay,
+        "units": units, "qr": qr_uri,
+    }

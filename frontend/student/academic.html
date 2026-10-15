@@ -9,7 +9,7 @@
   <link rel="stylesheet" href="../src/css/student.css">
   <link rel="stylesheet" href="../src/css/medium.css?v=9">
   <link rel="stylesheet" href="../src/css/timetable.css?v=1">
-  <link rel="stylesheet" href="../src/css/academic.css?v=2">
+  <link rel="stylesheet" href="../src/css/academic.css?v=3">
 </head>
 <body data-page="academic">
   <div id="content" class="left-col tt-wrap">
@@ -36,12 +36,12 @@
       <div class="ac-bar">
         <select id="rsYear" aria-label="Academic year"></select>
         <select id="rsSem" aria-label="Semester"></select>
-        <button type="button" id="rsGo" class="fm-save" disabled>Generate</button>
+        <button type="button" id="rsGo" class="ac-big" disabled>Generate</button>
       </div>
       <p id="rsMsg" class="ac-empty" hidden></p>
       <div id="rsOut"></div>
       <div class="ac-bar" id="rsDl" hidden>
-        <button type="button" id="rsPdf" class="fm-save green">Download PDF</button>
+        <button type="button" id="rsPdf" class="ac-big green">Download PDF</button>
       </div>
     </section>
   </div>
@@ -132,6 +132,67 @@
     }
 
     // ---------- results transcript ----------
+
+    // ---------- the slip, drawn on the page ----------
+    const GRADING = [["75-100", "A"], ["65-74", "B"], ["50-64", "C"], ["0-49", "E"]];
+    const OTHER = [["#", "Audited Unit"], ["*", "Supplementary"], ["**", "Retake"], ["-", "Missing Marks"],
+                   ["CT", "Credit Transfer"], ["I", "Incomplete"], ["NA", "Mark Type Not Applicable"]];
+    const NOTE = "NB: This result slip is issued without any erasures or alterations. Not Valid without Official Stamp";
+    function kv(label, value) {
+      const d = h("div", "sl-kv");
+      d.appendChild(h("b", "", label + ": "));
+      d.appendChild(document.createTextNode(String(value === null || value === undefined ? "" : value).toUpperCase()));
+      return d;
+    }
+    function keyBox(title, heads, rows) {
+      const box = h("div", "sl-key");
+      box.appendChild(h("div", "sl-keyt", title));
+      const t = h("table", "sl-keytab");
+      const hr = h("tr");
+      heads.forEach((x) => hr.appendChild(h("th", "", x)));
+      t.appendChild(hr);
+      rows.forEach((r) => { const tr = h("tr"); r.forEach((c) => tr.appendChild(h("td", "", c))); t.appendChild(tr); });
+      box.appendChild(t);
+      return box;
+    }
+    function renderSlip(d) {
+      const root = h("div", "sl");
+      const qr = h("img", "sl-qr"); qr.src = d.qr; qr.alt = "QR code";
+      root.appendChild(qr);
+      const logo = h("img", "sl-logo"); logo.src = "../assets/logo.jpg"; logo.alt = "Logo";
+      root.appendChild(logo);
+      const head = h("div", "sl-head");
+      head.appendChild(h("div", "sl-school", (d.school || "").toUpperCase()));
+      if (d.location) head.appendChild(h("div", "sl-line", d.location));
+      if (d.phone) head.appendChild(h("div", "sl-line", "TEL: " + d.phone));
+      head.appendChild(h("div", "sl-sub", "OFFICE OF THE REGISTRAR \u2013 ACADEMICS"));
+      head.appendChild(h("div", "sl-sub", "Result Slip"));
+      root.appendChild(head);
+      root.appendChild(h("hr", "sl-rule"));
+
+      const info = h("div", "sl-info");
+      const left = h("div", "sl-col"), right = h("div", "sl-col sl-right");
+      left.appendChild(kv("STUDENT NAME", d.name));
+      left.appendChild(kv("PROGRAMME", d.programme));
+      left.appendChild(kv("DEPARTMENT", d.department));
+      left.appendChild(kv("SCHOOL/FACULTY", d.faculty));
+      right.appendChild(kv("REG NO", d.reg));
+      right.appendChild(kv("ADMISSION YEAR", d.admission_year));
+      right.appendChild(kv("YEAR OF STUDY", "Year " + d.year_of_study + " Semester " + d.semester));
+      info.appendChild(left); info.appendChild(right);
+      root.appendChild(info);
+
+      root.appendChild(table(["UNIT CODE", "UNIT TITLE", "HOURS", "GRADE"],
+        d.units.map((u) => [cell(u.code), (u.title || "").toUpperCase(), cell(u.hours), cell(u.grade)]), [2, 3]));
+
+      const keys = h("div", "sl-keys");
+      keys.appendChild(keyBox("Key Grading System", ["Grade", "Points"], GRADING));
+      keys.appendChild(keyBox("Other Keys", ["Symbol", "Names"], OTHER));
+      root.appendChild(keys);
+      root.appendChild(h("p", "sl-note", NOTE));
+      return root;
+    }
+
     let cur = null;
     function clearRes() {
       $("rsOut").textContent = ""; $("rsDl").hidden = true; say($("rsMsg"), ""); cur = null;
@@ -149,11 +210,9 @@
       go.disabled = true; go.textContent = "Generating..."; clearRes();
       try {
         const y = $("rsYear").value, s = $("rsSem").value;
-        const d = await portal.api("/student/result-slip/data?" + qs(y, s));
+        const d = await portal.api("/student/result-slip/page?" + qs(y, s));
         cur = { y: y, s: s };
-        $("rsOut").appendChild(h("h4", "ac-group", "Year " + d.year_of_study + " - Semester " + d.semester + " - " + d.academic_year));
-        $("rsOut").appendChild(table(["Code", "Unit", "Hours", "Marks", "Grade"],
-          d.units.map((u) => [cell(u.code), u.title, cell(u.hours), cell(u.marks), cell(u.grade)]), [2, 3, 4]));
+        $("rsOut").appendChild(renderSlip(d));
         $("rsDl").hidden = false;
       } catch (e) { say($("rsMsg"), e.message); }
       finally { go.disabled = false; go.textContent = "Generate"; }
