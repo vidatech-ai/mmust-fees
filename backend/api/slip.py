@@ -140,7 +140,15 @@ def make_slip(school, name, reg, amount, when, mode, invoice, receipt, slip_no, 
     c.setFont("Helvetica", 9)
     c.drawString(x0 + 6 * mm, Y(128), "This is a computer-generated slip no signature required.")
     if POWERED_BY:
-        c.drawString(x0 + 6 * mm, Y(135), f"Powered by {POWERED_BY}")
+        px = x0 + 6 * mm
+        c.drawString(px, Y(135), "Powered by ")
+        jx = px + c.stringWidth("Powered by ", "Helvetica", 9)
+        c.setFillColor(colors.HexColor("#d6232a"))
+        c.drawString(jx, Y(135), POWERED_BY)
+        c.setStrokeColor(colors.HexColor("#d6232a"))
+        c.setLineWidth(0.6)
+        c.line(jx, Y(135) - 1.2, jx + c.stringWidth(POWERED_BY, "Helvetica", 9), Y(135) - 1.2)
+        c.setFillColor(INK)
 
     c.showPage()
     c.save()
