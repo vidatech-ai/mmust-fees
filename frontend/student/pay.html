@@ -30,6 +30,8 @@
     .pay-hist { margin-top: 26px; width: 100%; border-collapse: collapse; }
     .pay-hist th { text-align: left; padding: 8px 6px; font-size: 13px; background: var(--mp-tint); color: var(--mp-dark); }
     .pay-hist td { text-align: left; padding: 8px 6px; border-bottom: 1px solid #e3f1e2; font-size: 14px; }
+    .slip-btn { padding: 5px 10px; font: inherit; font-size: 12px; border: 1.5px solid var(--mp-green); background: #fff; color: var(--mp-dark); border-radius: 6px; cursor: pointer; white-space: nowrap; }
+    .slip-btn:hover:not(:disabled) { background: var(--mp-green); color: #fff; }
   </style>
 </head>
 <body data-page="pay">
@@ -51,7 +53,7 @@
       <div id="pay-msg"></div>
 
       <table class="pay-hist" id="pay-hist" style="display:none">
-        <thead><tr><th>Date</th><th>Amount</th><th>Status</th><th>Reference</th></tr></thead>
+        <thead><tr><th>Date</th><th>Amount</th><th>Status</th><th>Reference</th><th></th></tr></thead>
         <tbody></tbody>
       </table>
     </div>
@@ -85,6 +87,19 @@
       return data;
     }
 
+    async function getSlip(ref, b) {
+      b.disabled = true;
+      try {
+        var res = await fetch(API_BASE + "/payments/slip/" + encodeURIComponent(ref), { headers: { Authorization: "Bearer " + token } });
+        if (!res.ok) throw new Error("Could not download the slip");
+        var url = URL.createObjectURL(await res.blob());
+        var a = document.createElement("a");
+        a.href = url; a.download = "payment-slip-" + ref + ".pdf";
+        document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+      } catch (e) { say(e.message, "bad"); }
+      b.disabled = false;
+    }
+
     function drawHistory(list) {
       var body = hist.querySelector("tbody");
       body.innerHTML = "";
@@ -93,6 +108,14 @@
         [p.date, money(p.amount), p.status, p.reference].forEach(function (v) {
           var td = document.createElement("td"); td.textContent = v; tr.appendChild(td);
         });
+        var act = document.createElement("td");
+        if (p.status === "success") {
+          var sb = document.createElement("button");
+          sb.type = "button"; sb.className = "slip-btn"; sb.textContent = "Download slip";
+          sb.addEventListener("click", function () { getSlip(p.reference, sb); });
+          act.appendChild(sb);
+        }
+        tr.appendChild(act);
         body.appendChild(tr);
       });
       hist.style.display = list.length ? "" : "none";
