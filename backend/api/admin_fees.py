@@ -260,7 +260,6 @@ def add_payment(body: EntryIn, admin_id: str = Depends(current_admin)):
 def edit_payment(payment_id: uuid.UUID, body: EntryEdit, admin_id: str = Depends(current_admin)):
     pid = str(payment_id)
     old = _need("payments", pid, "Payment")
-    _manual_only(old)
     _need("fee_terms", body.term_id, "Semester", "id")
     desc, ref = _clean(body, "PAYMENT", "PAY")
     new = {"term_id": str(body.term_id), "amount": round(body.amount, 2), "description": desc,
@@ -274,7 +273,6 @@ def edit_payment(payment_id: uuid.UUID, body: EntryEdit, admin_id: str = Depends
 def delete_payment(payment_id: uuid.UUID, admin_id: str = Depends(current_admin)):
     pid = str(payment_id)
     old = _need("payments", pid, "Payment")
-    _manual_only(old)
     supabase.table("payments").delete().eq("id", pid).execute()
     _audit(admin_id, "delete", "payments", pid, old, None)
     return {"ok": True}

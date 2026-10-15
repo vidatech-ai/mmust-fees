@@ -200,9 +200,7 @@
       L.payments.forEach((p) => {
         const tr = el("tr"), acts = el("td"), st = el("td");
         st.appendChild(el("span", "pill " + (p.status === "success" ? "on" : "off"), p.source === "manual" ? "Recorded" : "Online - " + p.status));
-        if (p.source === "manual") {
-          acts.append(actBtn("Edit", "", () => openEntry("payment", p)), actBtn("Delete", "warn", () => removeEntry("payment", p)));
-        } else acts.textContent = "Locked";
+        acts.append(actBtn("Edit", "", () => openEntry("payment", p)), actBtn("Delete", "warn", () => removeEntry("payment", p)));
         tr.append(el("td", "", p.date), el("td", "", p.ref), el("td", "", p.description), el("td", "", p.term), el("td", "num", admin.money(p.amount)), st, acts);
         pb.appendChild(tr);
       });
