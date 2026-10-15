@@ -14,6 +14,7 @@ from api.admin_students import router as admin_students_router
 from api.settings import router as settings_router
 from api.statement import router as statement_router
 from api.photo import router as photo_router
+from api.payments import router as payments_router
 
 app = FastAPI(title="Sample University Fee Portal API")
 
@@ -35,6 +36,7 @@ app.include_router(admin_students_router)
 app.include_router(settings_router)
 app.include_router(statement_router)
 app.include_router(photo_router)
+app.include_router(payments_router)
 app.include_router(timetable_api.router)
 app.include_router(academic_api.router)
 

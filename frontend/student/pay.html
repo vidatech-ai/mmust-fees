@@ -8,16 +8,111 @@
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../src/css/student.css">
   <link rel="stylesheet" href="../src/css/medium.css?v=9">
+  <style>
+    .pay-box { max-width: 460px; }
+    .pay-box label { display: block; margin: 14px 0 6px; font-weight: 500; }
+    .pay-box input { width: 100%; padding: 10px 12px; font: inherit; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; }
+    .pay-box button { margin-top: 14px; padding: 11px 18px; font: inherit; font-weight: 500; border: 0; border-radius: 6px; cursor: pointer; background: #0b7a3b; color: #fff; }
+    .pay-box button:disabled { opacity: .6; cursor: not-allowed; }
+    #pay-msg { margin-top: 14px; font-weight: 500; }
+    #pay-msg.ok { color: #0b7a3b; }
+    #pay-msg.bad { color: #b3261e; }
+    .pay-hist { margin-top: 26px; width: 100%; max-width: 560px; border-collapse: collapse; }
+    .pay-hist th, .pay-hist td { text-align: left; padding: 8px 6px; border-bottom: 1px solid #e5e5e5; font-size: 14px; }
+  </style>
 </head>
 <body data-page="pay">
   <div id="content" class="left-col">
     <div class="crumb">Make Payment</div>
-    <div class="welcome">
+    <div class="welcome pay-box">
       <h2>Payments</h2>
-      <p>Online payment is not switched on yet. It will be available here soon.</p>
+      <p>Outstanding balance: <strong id="pay-balance">...</strong></p>
+      <label for="pay-amount">Amount to pay</label>
+      <input id="pay-amount" type="number" min="1" step="0.01" inputmode="decimal" placeholder="Enter amount">
+      <button id="pay-btn" type="button">Pay with Paystack</button>
+      <div id="pay-msg"></div>
+      <table class="pay-hist" id="pay-hist" style="display:none">
+        <thead><tr><th>Date</th><th>Amount</th><th>Status</th><th>Reference</th></tr></thead>
+        <tbody></tbody>
+      </table>
     </div>
   </div>
   <script src="../src/js/config.js"></script>
   <script src="../src/js/student.js"></script>
+  <script>
+  (function () {
+    var store = localStorage.getItem("portal_token") ? localStorage : sessionStorage;
+    var token = store.getItem("portal_token");
+    var balEl = document.getElementById("pay-balance");
+    var amtEl = document.getElementById("pay-amount");
+    var btn = document.getElementById("pay-btn");
+    var msg = document.getElementById("pay-msg");
+    var hist = document.getElementById("pay-hist");
+    var currency = "KES";
+
+    function say(text, cls) { msg.textContent = text; msg.className = cls || ""; }
+    function money(n) { return currency + " " + Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+
+    async function call(path, opts) {
+      var res = await fetch(API_BASE + path, Object.assign({}, opts, {
+        headers: { "Content-Type": "application/json", Authorization: "Bearer " + token }
+      }));
+      var data = {};
+      try { data = await res.json(); } catch (e) {}
+      if (!res.ok) throw new Error(data.detail || "Something went wrong");
+      return data;
+    }
+
+    function drawHistory(list) {
+      var body = hist.querySelector("tbody");
+      body.innerHTML = "";
+      list.forEach(function (p) {
+        var tr = document.createElement("tr");
+        [p.date, money(p.amount), p.status, p.reference].forEach(function (v) {
+          var td = document.createElement("td"); td.textContent = v; tr.appendChild(td);
+        });
+        body.appendChild(tr);
+      });
+      hist.style.display = list.length ? "" : "none";
+    }
+
+    async function load() {
+      var s = await call("/payments/summary");
+      currency = s.currency;
+      balEl.textContent = money(s.balance);
+      amtEl.max = s.balance;
+      if (s.balance <= 0) { btn.disabled = true; amtEl.disabled = true; }
+      drawHistory(s.online_payments);
+    }
+
+    async function checkReturn() {
+      var ref = new URLSearchParams(location.search).get("reference");
+      if (!ref) return;
+      history.replaceState(null, "", location.pathname);
+      say("Confirming your payment...");
+      try {
+        var r = await call("/payments/verify/" + encodeURIComponent(ref));
+        if (r.status === "success") say("Payment received. Thank you.", "ok");
+        else if (r.status === "failed") say("Payment failed. You have not been charged.", "bad");
+        else say("Payment not completed yet. If you were charged, refresh this page in a minute.");
+      } catch (e) { say(e.message, "bad"); }
+    }
+
+    btn.addEventListener("click", async function () {
+      var amount = parseFloat(amtEl.value);
+      if (!amount || amount <= 0) { say("Enter a valid amount", "bad"); return; }
+      btn.disabled = true; say("Opening Paystack...");
+      try {
+        var r = await call("/payments/initialize", { method: "POST", body: JSON.stringify({ amount: amount }) });
+        window.location.href = r.authorization_url;
+      } catch (e) { say(e.message, "bad"); btn.disabled = false; }
+    });
+
+    (async function () {
+      if (!token) { say("Not signed in", "bad"); return; }
+      try { await checkReturn(); await load(); } catch (e) { say(e.message, "bad"); }
+    })();
+  })();
+  </script>
 </body>
 </html>
