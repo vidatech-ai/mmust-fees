@@ -7,7 +7,7 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from core.config import PAYSTACK_SECRET_KEY, FRONTEND_ORIGIN
+from core.config import PAYSTACK_SECRET_KEY
 from core.db import supabase
 from core.security import current_student
 
@@ -15,13 +15,27 @@ router = APIRouter(prefix="/payments", tags=["payments"])
 
 PAYSTACK = "https://api.paystack.co"
 CURRENCY = os.getenv("PAYSTACK_CURRENCY", "KES")
-CALLBACK = os.getenv("PAYSTACK_CALLBACK_URL") or (FRONTEND_ORIGIN.rstrip("/") + "/student/pay.html")
+EMAIL_DOMAIN = os.getenv("PAYSTACK_EMAIL_DOMAIN", "vidatech-wifi.com")
 MIN_AMOUNT = 10
 MAX_AMOUNT = 10_000_000
 
 
-class InitIn(BaseModel):
+class MpesaIn(BaseModel):
     amount: float = Field(gt=0, le=MAX_AMOUNT)
+    phone: str = Field(min_length=9, max_length=20)
+
+
+def _phone(raw: str) -> str:
+    d = re.sub(r"\D", "", raw)
+    if d.startswith("254") and len(d) == 12:
+        pass
+    elif d.startswith("0") and len(d) == 10:
+        d = "254" + d[1:]
+    elif len(d) == 9 and d[0] in "17":
+        d = "254" + d
+    else:
+        raise HTTPException(400, "Enter a valid M-Pesa number, e.g. 0712345678")
+    return "+" + d
 
 
 def _paystack(method: str, path: str, payload: dict | None = None):
@@ -61,7 +75,7 @@ def _settle(row: dict) -> str:
         return row["status"]
     code, body = _paystack("GET", f"/transaction/verify/{row['paystack_reference']}")
     if code != 200 or not body.get("status"):
-        return "pending"  # not attempted yet, or lookup failed
+        return "pending"
     d = body["data"]
     ps = d.get("status")
     if ps == "success":
@@ -79,7 +93,7 @@ def _settle(row: dict) -> str:
         supabase.table("payments").update({"status": "failed"}) \
             .eq("id", row["id"]).eq("status", "pending").execute()
         return "failed"
-    return "pending"  # abandoned or ongoing: the student may still finish
+    return "pending"
 
 
 @router.get("/summary")
@@ -103,9 +117,10 @@ def summary(sid: str = Depends(current_student)):
     }
 
 
-@router.post("/initialize")
-def initialize(body: InitIn, sid: str = Depends(current_student)):
+@router.post("/mpesa")
+def mpesa(body: MpesaIn, sid: str = Depends(current_student)):
     amount = round(body.amount, 2)
+    phone = _phone(body.phone)
     bal = _balance(sid)
     if bal <= 0:
         raise HTTPException(400, "You have no outstanding balance")
@@ -114,29 +129,41 @@ def initialize(body: InitIn, sid: str = Depends(current_student)):
     if amount > bal:
         raise HTTPException(400, f"Amount is more than your balance of {bal:,.2f}")
 
-    st = supabase.table("students").select("reg_number,name").eq("id", sid).limit(1).execute().data[0]
+    st = supabase.table("students").select("reg_number").eq("id", sid).limit(1).execute().data[0]
     reference = "FEE-" + uuid.uuid4().hex[:16].upper()
     row = {
         "student_id": sid, "term_id": _current_term(sid), "amount": amount,
         "source": "paystack", "status": "pending", "paystack_reference": reference,
-        "description": "ONLINE PAYMENT (PAYSTACK)",
+        "description": "ONLINE PAYMENT (M-PESA)",
     }
     created = supabase.table("payments").insert(row).execute().data[0]
 
-    # Students have no email on file, so a placeholder address is used for Paystack
-    email = re.sub(r"[^a-z0-9]", "", st["reg_number"].lower()) + "@students.invalid"
-    code, res = _paystack("POST", "/transaction/initialize", {
+    # Paystack requires an email; students have none on file, so one is built from the reg number
+    reg_clean = re.sub(r"[^a-z0-9]", "", st["reg_number"].lower())
+    email = f"mmustfees+{reg_clean}+{phone.lstrip('+')}@{EMAIL_DOMAIN}"
+    code, res = _paystack("POST", "/charge", {
         "email": email,
         "amount": int(round(amount * 100)),
         "currency": CURRENCY,
         "reference": reference,
-        "callback_url": CALLBACK,
-        "metadata": {"app": "mmust-fees", "student_id": sid, "reg_number": st["reg_number"]},
+        "mobile_money": {"phone": phone, "provider": "mpesa"},
+        "metadata": {
+            "app": "mmust-fees", "student_id": sid, "reg_number": st["reg_number"],
+            "custom_fields": [
+                {"display_name": "App", "variable_name": "app", "value": "MMUST Fee Portal"},
+                {"display_name": "Reg number", "variable_name": "reg_number", "value": st["reg_number"]},
+                {"display_name": "Phone", "variable_name": "phone", "value": phone},
+            ],
+        },
     })
-    if code != 200 or not res.get("status"):
+    data = res.get("data") or {}
+    if code != 200 or not res.get("status") or data.get("status") == "failed":
         supabase.table("payments").update({"status": "failed"}).eq("id", created["id"]).execute()
-        raise HTTPException(502, res.get("message") or "Could not start the payment")
-    return {"authorization_url": res["data"]["authorization_url"], "reference": reference}
+        raise HTTPException(502, data.get("message") or res.get("message") or "Could not start the payment")
+    return {
+        "reference": reference,
+        "message": data.get("display_text") or "Check your phone and enter your M-Pesa PIN",
+    }
 
 
 @router.get("/verify/{reference}")

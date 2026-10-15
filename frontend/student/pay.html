@@ -10,14 +10,18 @@
   <link rel="stylesheet" href="../src/css/medium.css?v=9">
   <style>
     .pay-box { max-width: 460px; }
+    .pay-logo { height: 46px; display: block; margin: 0 0 12px; }
     .pay-box label { display: block; margin: 14px 0 6px; font-weight: 500; }
     .pay-box input { width: 100%; padding: 10px 12px; font: inherit; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; }
-    .pay-box button { margin-top: 14px; padding: 11px 18px; font: inherit; font-weight: 500; border: 0; border-radius: 6px; cursor: pointer; background: #0b7a3b; color: #fff; }
-    .pay-box button:disabled { opacity: .6; cursor: not-allowed; }
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+    .chips button { padding: 7px 12px; font: inherit; font-size: 13px; border: 1px solid #0b7a3b; background: #fff; color: #0b7a3b; border-radius: 999px; cursor: pointer; }
+    .chips button:hover { background: #e9f6ee; }
+    #pay-btn { margin-top: 16px; padding: 12px 18px; width: 100%; font: inherit; font-weight: 600; border: 0; border-radius: 6px; cursor: pointer; background: #0b7a3b; color: #fff; }
+    #pay-btn:disabled { opacity: .6; cursor: not-allowed; }
     #pay-msg { margin-top: 14px; font-weight: 500; }
     #pay-msg.ok { color: #0b7a3b; }
     #pay-msg.bad { color: #b3261e; }
-    .pay-hist { margin-top: 26px; width: 100%; max-width: 560px; border-collapse: collapse; }
+    .pay-hist { margin-top: 26px; width: 100%; border-collapse: collapse; }
     .pay-hist th, .pay-hist td { text-align: left; padding: 8px 6px; border-bottom: 1px solid #e5e5e5; font-size: 14px; }
   </style>
 </head>
@@ -25,12 +29,20 @@
   <div id="content" class="left-col">
     <div class="crumb">Make Payment</div>
     <div class="welcome pay-box">
+      <img class="pay-logo" src="../assets/mpesa.png" alt="M-PESA" onerror="this.style.display='none'">
       <h2>Payments</h2>
       <p>Outstanding balance: <strong id="pay-balance">...</strong></p>
+
       <label for="pay-amount">Amount to pay</label>
       <input id="pay-amount" type="number" min="1" step="0.01" inputmode="decimal" placeholder="Enter amount">
-      <button id="pay-btn" type="button">Pay with Paystack</button>
+      <div class="chips" id="pay-chips"></div>
+
+      <label for="pay-phone">M-Pesa phone number</label>
+      <input id="pay-phone" type="tel" inputmode="tel" placeholder="e.g. 0712345678" autocomplete="tel">
+
+      <button id="pay-btn" type="button">Pay with M-Pesa</button>
       <div id="pay-msg"></div>
+
       <table class="pay-hist" id="pay-hist" style="display:none">
         <thead><tr><th>Date</th><th>Amount</th><th>Status</th><th>Reference</th></tr></thead>
         <tbody></tbody>
@@ -45,13 +57,16 @@
     var token = store.getItem("portal_token");
     var balEl = document.getElementById("pay-balance");
     var amtEl = document.getElementById("pay-amount");
+    var phoneEl = document.getElementById("pay-phone");
+    var chipsEl = document.getElementById("pay-chips");
     var btn = document.getElementById("pay-btn");
     var msg = document.getElementById("pay-msg");
     var hist = document.getElementById("pay-hist");
-    var currency = "KES";
+    var currency = "KES", minAmt = 10, balance = 0;
 
     function say(text, cls) { msg.textContent = text; msg.className = cls || ""; }
     function money(n) { return currency + " " + Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+    function wait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
 
     async function call(path, opts) {
       var res = await fetch(API_BASE + path, Object.assign({}, opts, {
@@ -59,7 +74,7 @@
       }));
       var data = {};
       try { data = await res.json(); } catch (e) {}
-      if (!res.ok) throw new Error(data.detail || "Something went wrong");
+      if (!res.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Check the amount and phone number");
       return data;
     }
 
@@ -76,41 +91,64 @@
       hist.style.display = list.length ? "" : "none";
     }
 
+    function drawChips() {
+      chipsEl.innerHTML = "";
+      var opts = [["Full balance", balance], ["Half", Math.round(balance / 2)], ["1,000", 1000], ["5,000", 5000]];
+      var seen = {};
+      opts.forEach(function (o) {
+        var v = Math.round(o[1] * 100) / 100;
+        if (v < minAmt || v > balance || seen[v]) return;
+        seen[v] = true;
+        var b = document.createElement("button");
+        b.type = "button";
+        b.textContent = o[0] === "Full balance" || o[0] === "Half" ? o[0] + " (" + v.toLocaleString() + ")" : v.toLocaleString();
+        b.addEventListener("click", function () { amtEl.value = v; });
+        chipsEl.appendChild(b);
+      });
+    }
+
     async function load() {
       var s = await call("/payments/summary");
-      currency = s.currency;
-      balEl.textContent = money(s.balance);
-      amtEl.max = s.balance;
-      if (s.balance <= 0) { btn.disabled = true; amtEl.disabled = true; }
+      currency = s.currency; minAmt = s.min_amount; balance = s.balance;
+      balEl.textContent = money(balance);
+      amtEl.max = balance;
+      if (balance <= 0) { btn.disabled = true; amtEl.disabled = true; phoneEl.disabled = true; }
+      drawChips();
       drawHistory(s.online_payments);
     }
 
-    async function checkReturn() {
-      var ref = new URLSearchParams(location.search).get("reference");
-      if (!ref) return;
-      history.replaceState(null, "", location.pathname);
-      say("Confirming your payment...");
-      try {
+    async function waitForPayment(ref) {
+      for (var i = 0; i < 25; i++) {
+        await wait(4000);
         var r = await call("/payments/verify/" + encodeURIComponent(ref));
-        if (r.status === "success") say("Payment received. Thank you.", "ok");
-        else if (r.status === "failed") say("Payment failed. You have not been charged.", "bad");
-        else say("Payment not completed yet. If you were charged, refresh this page in a minute.");
-      } catch (e) { say(e.message, "bad"); }
+        if (r.status === "success") return "success";
+        if (r.status === "failed") return "failed";
+      }
+      return "pending";
     }
 
     btn.addEventListener("click", async function () {
       var amount = parseFloat(amtEl.value);
+      var phone = phoneEl.value.trim();
       if (!amount || amount <= 0) { say("Enter a valid amount", "bad"); return; }
-      btn.disabled = true; say("Opening Paystack...");
+      if (!phone) { say("Enter your M-Pesa phone number", "bad"); return; }
+      btn.disabled = true; say("Sending request to your phone...");
       try {
-        var r = await call("/payments/initialize", { method: "POST", body: JSON.stringify({ amount: amount }) });
-        window.location.href = r.authorization_url;
-      } catch (e) { say(e.message, "bad"); btn.disabled = false; }
+        var r = await call("/payments/mpesa", { method: "POST", body: JSON.stringify({ amount: amount, phone: phone }) });
+        say(r.message + ". Waiting for confirmation...");
+        var result = await waitForPayment(r.reference);
+        if (result === "success") say("Payment received. Thank you.", "ok");
+        else if (result === "failed") say("Payment was not completed. You have not been charged.", "bad");
+        else say("We have not received the payment yet. If M-Pesa deducted money, refresh this page in a minute.");
+        amtEl.value = "";
+        await load();
+      } catch (e) { say(e.message, "bad"); }
+      btn.disabled = balance <= 0;
     });
 
     (async function () {
       if (!token) { say("Not signed in", "bad"); return; }
-      try { await checkReturn(); await load(); } catch (e) { say(e.message, "bad"); }
+      try { await load(); } catch (e) { say(e.message, "bad"); }
     })();
   })();
   </script>
