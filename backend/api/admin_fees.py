@@ -1,7 +1,8 @@
 import re
 import secrets
 import uuid
-from datetime import date
+import random
+from datetime import date, datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -110,6 +111,26 @@ def _clean(body, default_desc: str, prefix: str):
 def _manual_only(old: dict):
     if old.get("source") != "manual":
         raise HTTPException(400, "Online payments cannot be changed here")
+
+
+_EAT = timezone(timedelta(hours=3))
+
+
+def _manual_time(d: date) -> str:
+    # random time between 10:00 and 16:00 East Africa Time, stored as UTC
+    start = datetime(d.year, d.month, d.day, tzinfo=_EAT)
+    return (start + timedelta(minutes=random.randint(600, 960))).astimezone(timezone.utc).isoformat()
+
+
+def _paid_at(old: dict, d: date) -> str:
+    # keep the existing time if the date did not change, otherwise pick a new random time
+    raw = str(old.get("paid_at") or "")
+    try:
+        if raw and datetime.fromisoformat(raw.replace("Z", "+00:00")).astimezone(_EAT).date() == d:
+            return raw
+    except ValueError:
+        pass
+    return _manual_time(d)
 
 
 # ---------- semester fee ----------
@@ -249,7 +270,7 @@ def add_payment(body: EntryIn, admin_id: str = Depends(current_admin)):
     _need("fee_terms", body.term_id, "Semester", "id")
     desc, ref = _clean(body, "PAYMENT", "PAY")
     row = {"student_id": str(body.student_id), "term_id": str(body.term_id), "amount": round(body.amount, 2),
-           "source": "manual", "status": "success", "paid_at": body.entry_date.isoformat(),
+           "source": "manual", "status": "success", "paid_at": _manual_time(body.entry_date),
            "description": desc, "ref": ref}
     created = supabase.table("payments").insert(row).execute().data[0]
     _audit(admin_id, "create", "payments", created["id"], None, row)
@@ -263,7 +284,7 @@ def edit_payment(payment_id: uuid.UUID, body: EntryEdit, admin_id: str = Depends
     _need("fee_terms", body.term_id, "Semester", "id")
     desc, ref = _clean(body, "PAYMENT", "PAY")
     new = {"term_id": str(body.term_id), "amount": round(body.amount, 2), "description": desc,
-           "ref": ref, "paid_at": body.entry_date.isoformat()}
+           "ref": ref, "paid_at": _paid_at(old, body.entry_date)}
     supabase.table("payments").update(new).eq("id", pid).execute()
     _audit(admin_id, "update", "payments", pid, old, new)
     return {"ok": True}
