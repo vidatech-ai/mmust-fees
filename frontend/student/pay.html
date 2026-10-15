@@ -9,20 +9,27 @@
   <link rel="stylesheet" href="../src/css/student.css">
   <link rel="stylesheet" href="../src/css/medium.css?v=9">
   <style>
-    .pay-box { max-width: 460px; }
-    .pay-logo { height: 46px; display: block; margin: 0 0 12px; }
-    .pay-box label { display: block; margin: 14px 0 6px; font-weight: 500; }
-    .pay-box input { width: 100%; padding: 10px 12px; font: inherit; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; }
+    :root { --mp-green: #4DB848; --mp-dark: #2E8B3A; --mp-tint: #EAF7E9; --mp-red: #D6232A; }
+    .pay-box { max-width: 480px; background: #fff; border: 1px solid #d9eed8; border-top: 6px solid var(--mp-green); border-radius: 12px; padding: 22px 22px 26px; box-shadow: 0 4px 16px rgba(77,184,72,.15); }
+    .pay-logo { height: 90px; max-width: 100%; object-fit: contain; display: block; margin: 0 auto 10px; }
+    .pay-box h2 { color: var(--mp-dark); text-align: center; margin: 4px 0 8px; }
+    .pay-box p { text-align: center; }
+    #pay-balance { color: var(--mp-dark); font-size: 1.15em; }
+    .pay-box label { display: block; margin: 16px 0 6px; font-weight: 500; color: var(--mp-dark); }
+    .pay-box input { width: 100%; padding: 11px 12px; font: inherit; border: 1.5px solid #cfe8cd; border-radius: 8px; box-sizing: border-box; background: #fbfefb; }
+    .pay-box input:focus { outline: none; border-color: var(--mp-green); box-shadow: 0 0 0 3px rgba(77,184,72,.25); }
     .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
-    .chips button { padding: 7px 12px; font: inherit; font-size: 13px; border: 1px solid #0b7a3b; background: #fff; color: #0b7a3b; border-radius: 999px; cursor: pointer; }
-    .chips button:hover { background: #e9f6ee; }
-    #pay-btn { margin-top: 16px; padding: 12px 18px; width: 100%; font: inherit; font-weight: 600; border: 0; border-radius: 6px; cursor: pointer; background: #0b7a3b; color: #fff; }
+    .chips button { padding: 7px 13px; font: inherit; font-size: 13px; border: 1.5px solid var(--mp-green); background: var(--mp-tint); color: var(--mp-dark); border-radius: 999px; cursor: pointer; }
+    .chips button:hover { background: var(--mp-green); color: #fff; }
+    #pay-btn { margin-top: 20px; padding: 14px 18px; width: 100%; font: inherit; font-size: 16px; font-weight: 600; border: 0; border-radius: 8px; cursor: pointer; background: var(--mp-green); color: #fff; }
+    #pay-btn:hover:not(:disabled) { background: var(--mp-dark); }
     #pay-btn:disabled { opacity: .6; cursor: not-allowed; }
-    #pay-msg { margin-top: 14px; font-weight: 500; }
-    #pay-msg.ok { color: #0b7a3b; }
-    #pay-msg.bad { color: #b3261e; }
+    #pay-msg { margin-top: 14px; font-weight: 500; text-align: center; }
+    #pay-msg.ok { color: var(--mp-dark); }
+    #pay-msg.bad { color: var(--mp-red); }
     .pay-hist { margin-top: 26px; width: 100%; border-collapse: collapse; }
-    .pay-hist th, .pay-hist td { text-align: left; padding: 8px 6px; border-bottom: 1px solid #e5e5e5; font-size: 14px; }
+    .pay-hist th { text-align: left; padding: 8px 6px; font-size: 13px; background: var(--mp-tint); color: var(--mp-dark); }
+    .pay-hist td { text-align: left; padding: 8px 6px; border-bottom: 1px solid #e3f1e2; font-size: 14px; }
   </style>
 </head>
 <body data-page="pay">
