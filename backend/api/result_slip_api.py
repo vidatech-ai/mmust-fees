@@ -32,12 +32,8 @@ def _hours(v):
     return int(v) if v == int(v) else v
 
 
-def _build(sid: str, ay: str, sem: int) -> bytes:
-    st = supabase.table("students").select("name,reg_number,admission_year").eq("id", sid).limit(1).execute().data
-    if not st:
-        raise HTTPException(404, "Student not found")
-    st = st[0]
-
+def _rows(sid: str, ay: str, sem: int):
+    """Results for one student, year and semester. Returns (year_of_study, units)."""
     recs = (supabase.table("transcript_records").select("*")
             .eq("student_id", sid).eq("academic_year", ay).eq("semester", sem)
             .limit(500).execute().data)
@@ -51,12 +47,30 @@ def _build(sid: str, ay: str, sem: int) -> bytes:
     hours = {(u.get("unit_code") or "").upper(): u.get("credit_hours") for u in catalog}
 
     recs.sort(key=lambda r: (r.get("unit_code") or "", r["unit_name"]))
-    units = [{
-        "code": r.get("unit_code") or "",
-        "title": r["unit_name"],
-        "hours": _hours(hours.get((r.get("unit_code") or "").upper())),
-        "grade": grade_for(r.get("marks")),
-    } for r in recs]
+    seen = set()
+    units = []
+    for r in recs:
+        code = (r.get("unit_code") or "").strip().upper()
+        if code:
+            if code in seen:      # duplicate row in the database: show the unit once
+                continue
+            seen.add(code)
+        units.append({
+            "code": r.get("unit_code") or "",
+            "title": r["unit_name"],
+            "hours": _hours(hours.get(code)),
+            "marks": r.get("marks"),
+            "grade": grade_for(r.get("marks")),
+        })
+    return yos, units
+
+
+def _build(sid: str, ay: str, sem: int) -> bytes:
+    st = supabase.table("students").select("name,reg_number,admission_year").eq("id", sid).limit(1).execute().data
+    if not st:
+        raise HTTPException(404, "Student not found")
+    st = st[0]
+    yos, units = _rows(sid, ay, sem)
 
     cfg = supabase.table("settings").select("*").eq("id", 1).limit(1).execute().data
     cfg = cfg[0] if cfg else {}
@@ -72,12 +86,21 @@ def _build(sid: str, ay: str, sem: int) -> bytes:
     )
 
 
+# ---------- results transcript ----------
+
 @router.get("/student/result-slip/options")
 def options(student_id: str = Depends(current_student)):
     rows = (supabase.table("transcript_records").select("academic_year,semester")
             .eq("student_id", student_id).limit(2000).execute().data)
     pairs = sorted({(r["academic_year"], r["semester"]) for r in rows}, reverse=True)
     return {"options": [{"academic_year": a, "semester": s} for a, s in pairs]}
+
+
+@router.get("/student/result-slip/data")
+def data(academic_year: str, semester: int, student_id: str = Depends(current_student)):
+    ay = academic_year.strip()
+    yos, units = _rows(student_id, ay, semester)
+    return {"academic_year": ay, "semester": semester, "year_of_study": yos, "units": units}
 
 
 @router.get("/student/result-slip")
@@ -97,3 +120,22 @@ def view(student_id: str, academic_year: str, semester: int):
     pdf = _build(sid, academic_year.strip(), semester)
     return Response(pdf, media_type="application/pdf",
                     headers={"Content-Disposition": 'inline; filename="result-slip.pdf"'})
+
+
+# ---------- curriculum units ----------
+
+@router.get("/student/curriculum/options")
+def curriculum_options(student_id: str = Depends(current_student)):
+    rows = supabase.table("academic_units").select("academic_year,semester").limit(2000).execute().data
+    pairs = sorted({(r["academic_year"], r["semester"]) for r in rows}, reverse=True)
+    return {"options": [{"academic_year": a, "semester": s} for a, s in pairs]}
+
+
+@router.get("/student/curriculum")
+def curriculum(academic_year: str, semester: int, student_id: str = Depends(current_student)):
+    rows = (supabase.table("academic_units")
+            .select("year_of_study,unit_code,unit_name,credit_hours")
+            .eq("academic_year", academic_year.strip()).eq("semester", semester)
+            .limit(500).execute().data)
+    rows.sort(key=lambda u: (u["year_of_study"], u.get("unit_code") or "", u["unit_name"]))
+    return {"units": rows}
