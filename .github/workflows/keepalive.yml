@@ -1,0 +1,14 @@
+name: keepalive
+on:
+  schedule:
+    - cron: "*/10 * * * *"   # every 10 minutes
+  workflow_dispatch: {}       # lets you run it by hand from the Actions tab
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping backend (also reads from Supabase)
+        run: |
+          curl --fail --silent --show-error --max-time 90 --retry 3 --retry-delay 15 --retry-all-errors \
+            https://mmust-fees-backend.onrender.com/public/school
