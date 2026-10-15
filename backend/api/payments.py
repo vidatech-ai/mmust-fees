@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 from core.config import PAYSTACK_SECRET_KEY
 from core.db import supabase
 from core.security import current_student
+from api.admin_fees import _bank_name, _bank_ref, _fresh_refs
 
 router = APIRouter(prefix="/payments", tags=["payments"])
 
@@ -134,7 +135,8 @@ def mpesa(body: MpesaIn, sid: str = Depends(current_student)):
     row = {
         "student_id": sid, "term_id": _current_term(sid), "amount": amount,
         "source": "paystack", "status": "pending", "paystack_reference": reference,
-        "description": "ONLINE PAYMENT (M-PESA)",
+        "description": _bank_name() or "PAYMENT",
+        "ref": _fresh_refs("payments", _bank_ref, 1)[0],
     }
     created = supabase.table("payments").insert(row).execute().data[0]
 
