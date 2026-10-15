@@ -51,6 +51,7 @@
         <div class="btn-row">
           <button type="button" id="addCharge" class="fm-save">Add invoice / adjustment</button>
           <button type="button" id="addPay" class="fm-save green">Add payment</button>
+          <button type="button" id="delAllPay" class="fm-save" style="background:#b42318">Delete ALL payments</button>
         </div>
 
         <h4 class="sub-h">Invoices and adjustments</h4>
@@ -255,6 +256,16 @@
         await loadLedger();
       } catch (err) { show(err.message, false); }
     }
+
+    $("delAllPay").addEventListener("click", async () => {
+      const t = prompt("This deletes EVERY payment for ALL students and cannot be undone.\nType DELETE to confirm:");
+      if (t !== "DELETE") return;
+      try {
+        const r = await admin.api("/admin/fees/payments?confirm=DELETE", { method: "DELETE" });
+        show("Deleted " + r.deleted + " payments.", true);
+        await loadLedger();
+      } catch (err) { show(err.message, false); }
+    });
 
     $("tDate").value = today();
     function loadBank() {

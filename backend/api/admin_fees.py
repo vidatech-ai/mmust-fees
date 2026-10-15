@@ -278,3 +278,16 @@ def delete_payment(payment_id: uuid.UUID, admin_id: str = Depends(current_admin)
     supabase.table("payments").delete().eq("id", pid).execute()
     _audit(admin_id, "delete", "payments", pid, old, None)
     return {"ok": True}
+
+
+@router.delete("/payments")
+def delete_all_payments(confirm: str = "", admin_id: str = Depends(current_admin)):
+    if confirm != "DELETE":
+        raise HTTPException(400, "Type DELETE to confirm")
+    rows = supabase.table("payments").select("amount").execute().data
+    count = len(rows)
+    total = round(sum(float(r["amount"]) for r in rows), 2)
+    if count:
+        supabase.table("payments").delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
+    _audit(admin_id, "delete_all", "payments", None, {"count": count, "total": total}, None)
+    return {"deleted": count}
