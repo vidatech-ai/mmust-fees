@@ -2,6 +2,7 @@ import hashlib
 import io
 import os
 import secrets
+import uuid
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Response
@@ -192,7 +193,7 @@ def _build(p: dict) -> bytes:
     no = _ensure_slip_no(p)
     return make_slip(
         school=school, name=st["name"], reg=st["reg_number"], amount=float(p["amount"]), when=_when(p),
-        mode="M-Pesa", invoice=invoice, receipt="", slip_no=no,
+        mode=("M-Pesa" if p.get("source") == "paystack" else ((p.get("description") or "").strip() or "Bank")), invoice=invoice, receipt="", slip_no=no,
         qr_text=f"{PUBLIC_API}/payments/slip/view/{no}",
     )
 
@@ -207,13 +208,17 @@ def view_slip(slip_no: str):
                     headers={"Content-Disposition": f'inline; filename="{slip_no}.pdf"'})
 
 
-@router.get("/slip/{reference}")
-def slip(reference: str, sid: str = Depends(current_student)):
-    rows = (supabase.table("payments").select("*").eq("paystack_reference", reference)
+@router.get("/slip/{payment_id}")
+def slip(payment_id: str, sid: str = Depends(current_student)):
+    try:
+        pid = str(uuid.UUID(payment_id))
+    except ValueError:
+        raise HTTPException(404, "Payment not found")
+    rows = (supabase.table("payments").select("*").eq("id", pid)
             .eq("student_id", sid).limit(1).execute().data)
     if not rows:
         raise HTTPException(404, "Payment not found")
     if rows[0]["status"] != "success":
         raise HTTPException(400, "A slip is only available for completed payments")
     return Response(_build(rows[0]), media_type="application/pdf",
-                    headers={"Content-Disposition": f'attachment; filename="payment-slip-{reference}.pdf"'})
+                    headers={"Content-Disposition": 'attachment; filename="payment-slip.pdf"'})

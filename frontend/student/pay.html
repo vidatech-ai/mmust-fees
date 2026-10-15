@@ -112,7 +112,7 @@
         if (p.status === "success") {
           var sb = document.createElement("button");
           sb.type = "button"; sb.className = "slip-btn"; sb.textContent = "Download slip";
-          sb.addEventListener("click", function () { getSlip(p.reference, sb); });
+          sb.addEventListener("click", function () { getSlip(p.id, sb); });
           act.appendChild(sb);
         }
         tr.appendChild(act);

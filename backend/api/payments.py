@@ -104,15 +104,16 @@ def summary(sid: str = Depends(current_student)):
     for row in pend:
         _settle(row)
     rows = (supabase.table("payments")
-            .select("amount,status,paystack_reference,paid_at,created_at")
-            .eq("student_id", sid).eq("source", "paystack")
-            .order("created_at", desc=True).limit(10).execute().data)
+            .select("id,amount,status,ref,paystack_reference,source,paid_at,created_at")
+            .eq("student_id", sid)
+            .order("created_at", desc=True).limit(50).execute().data)
     return {
         "balance": _balance(sid),
         "currency": CURRENCY,
         "min_amount": MIN_AMOUNT,
         "online_payments": [{
-            "reference": r["paystack_reference"], "amount": float(r["amount"]),
+            "id": r["id"], "reference": r.get("ref") or r.get("paystack_reference") or "",
+            "amount": float(r["amount"]),
             "status": r["status"], "date": str(r.get("paid_at") or r["created_at"])[:10],
         } for r in rows],
     }
