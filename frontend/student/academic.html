@@ -106,38 +106,7 @@
         "h3{font-size:14px;color:#0b3a7e;margin:20px 0 6px}table{width:100%;border-collapse:collapse;font-size:13px}" +
         "th,td{border:1px solid #ccd;padding:6px 8px;text-align:left}th{background:#f0f3fa}.n{text-align:right}</style></head><body>" +
         "<h1>" + esc(school) + " - Academic Transcript</h1><h2>" + esc(me.name || "") + " | " + esc(me.reg_number || "") + "</h2>" + body +
-        "<script>window.onload=function(){window.print()}<\/script>  <script>
-    (function () {
-      const yr = document.getElementById("rsYear"), sm = document.getElementById("rsSem");
-      const go = document.getElementById("rsGo"), msg = document.getElementById("rsMsg");
-      let opts = [];
-      function say(t) { msg.textContent = t; msg.hidden = !t; }
-      function fillSem() {
-        sm.textContent = "";
-        opts.filter((o) => o.academic_year === yr.value).map((o) => o.semester).sort()
-          .forEach((n) => { const e = document.createElement("option"); e.value = n; e.textContent = "Semester " + n; sm.appendChild(e); });
-      }
-      portal.api("/student/result-slip/options").then((d) => {
-        opts = d.options || [];
-        if (!opts.length) { say("No results have been posted to your account yet."); return; }
-        [...new Set(opts.map((o) => o.academic_year))].forEach((y) => {
-          const e = document.createElement("option"); e.value = y; e.textContent = y; yr.appendChild(e);
-        });
-        fillSem();
-        go.disabled = false;
-      }).catch((e) => say(e.message));
-      yr.addEventListener("change", fillSem);
-      go.addEventListener("click", async () => {
-        go.disabled = true; go.textContent = "Preparing..."; say("");
-        try {
-          const q = "academic_year=" + encodeURIComponent(yr.value) + "&semester=" + encodeURIComponent(sm.value);
-          await portal.download("/student/result-slip?" + q, "result-slip-" + yr.value.replace("/", "-") + "-sem" + sm.value + ".pdf");
-        } catch (e) { say(e.message); }
-        finally { go.disabled = false; go.textContent = "Generate"; }
-      });
-    })();
-  </script>
-</body></html>";
+        "<script>window.onload=function(){window.print()}<\/script></body></html>";
       const w = window.open("", "_blank");
       if (!w) { alert("Allow pop-ups for this site, then try again."); return; }
       w.document.open(); w.document.write(doc); w.document.close();
@@ -182,6 +151,37 @@
       $("acErr").textContent = e.message;
       $("acErr").hidden = false;
     });
+  </script>
+  <script>
+    (function () {
+      const yr = document.getElementById("rsYear"), sm = document.getElementById("rsSem");
+      const go = document.getElementById("rsGo"), msg = document.getElementById("rsMsg");
+      let opts = [];
+      function say(t) { msg.textContent = t; msg.hidden = !t; }
+      function fillSem() {
+        sm.textContent = "";
+        opts.filter((o) => o.academic_year === yr.value).map((o) => o.semester).sort()
+          .forEach((n) => { const e = document.createElement("option"); e.value = n; e.textContent = "Semester " + n; sm.appendChild(e); });
+      }
+      portal.api("/student/result-slip/options").then((d) => {
+        opts = d.options || [];
+        if (!opts.length) { say("No results have been posted to your account yet."); return; }
+        [...new Set(opts.map((o) => o.academic_year))].forEach((y) => {
+          const e = document.createElement("option"); e.value = y; e.textContent = y; yr.appendChild(e);
+        });
+        fillSem();
+        go.disabled = false;
+      }).catch((e) => say(e.message));
+      yr.addEventListener("change", fillSem);
+      go.addEventListener("click", async () => {
+        go.disabled = true; go.textContent = "Preparing..."; say("");
+        try {
+          const q = "academic_year=" + encodeURIComponent(yr.value) + "&semester=" + encodeURIComponent(sm.value);
+          await portal.download("/student/result-slip?" + q, "result-slip-" + yr.value.replace("/", "-") + "-sem" + sm.value + ".pdf");
+        } catch (e) { say(e.message); }
+        finally { go.disabled = false; go.textContent = "Generate"; }
+      });
+    })();
   </script>
 </body>
 </html>
