@@ -106,7 +106,9 @@ def summary(sid: str = Depends(current_student)):
     rows = (supabase.table("payments")
             .select("id,amount,status,ref,paystack_reference,source,paid_at,created_at")
             .eq("student_id", sid)
-            .order("created_at", desc=True).limit(50).execute().data)
+            .limit(500).execute().data)
+    rows.sort(key=lambda r: str(r.get("paid_at") or r["created_at"]), reverse=True)
+    rows = rows[:50]
     return {
         "balance": _balance(sid),
         "currency": CURRENCY,
