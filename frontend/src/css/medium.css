@@ -113,3 +113,21 @@ body { font-size: 18px; }
 }
 
 @media (max-width: 900px) { .top-brand img { height: 46px !important; } }
+
+/* ---- Responsive school name (final override) ---- */
+.top-school {
+  font-size: clamp(16px, 2.2vw, 24px);
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+@media (max-width: 900px) {
+  .top-school {
+    font-size: clamp(12px, 3.6vw, 17px);
+    line-height: 1.15;
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    overflow: hidden;
+  }
+}

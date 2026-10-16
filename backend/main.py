@@ -17,6 +17,7 @@ from api.photo import router as photo_router
 from api.payments import router as payments_router
 from api.slip import router as slip_router
 from api import result_slip_api
+from api import reporting as reporting_api
 
 app = FastAPI(title="Sample University Fee Portal API")
 
@@ -43,6 +44,7 @@ app.include_router(slip_router)
 app.include_router(timetable_api.router)
 app.include_router(academic_api.router)
 app.include_router(result_slip_api.router)
+app.include_router(reporting_api.router)
 
 
 @app.get("/health")
