@@ -9,7 +9,7 @@
   <link rel="stylesheet" href="../src/css/student.css">
   <link rel="stylesheet" href="../src/css/medium.css?v=10">
   <link rel="stylesheet" href="../src/css/timetable.css?v=1">
-  <link rel="stylesheet" href="../src/css/academic.css?v=3">
+  <link rel="stylesheet" href="../src/css/academic.css?v=4">
 </head>
 <body data-page="academic">
   <div id="content" class="left-col tt-wrap">
@@ -19,6 +19,7 @@
     <div class="ac-tabs">
       <button type="button" id="tabUnits" class="ac-tab">Curriculum Units</button>
       <button type="button" id="tabRes" class="ac-tab">Results Transcript</button>
+      <button type="button" id="tabRep" class="ac-tab">School Reporting</button>
     </div>
 
     <section id="paneUnits" hidden>
@@ -44,10 +45,19 @@
         <button type="button" id="rsPdf" class="ac-big green">Download PDF</button>
       </div>
     </section>
+
+    <section id="paneRep" hidden>
+      <div class="ac-bar" style="justify-content:space-between">
+        <h3 class="tt-h" style="margin:0;color:#2f80d9">Reporting</h3>
+        <button type="button" id="repBtn" class="ac-big">+ Report</button>
+      </div>
+      <p id="repMsg" class="ac-empty" hidden></p>
+      <div id="repOut"></div>
+    </section>
   </div>
 
   <script src="../src/js/config.js"></script>
-  <script src="../src/js/student.js"></script>
+  <script src="../src/js/student.js?v=2"></script>
   <script>
     const $ = (id) => document.getElementById(id);
     const h = (tag, cls, text) => {
@@ -91,15 +101,16 @@
     }
 
     // ---------- tabs ----------
-    const panes = { units: $("paneUnits"), res: $("paneRes") };
-    const tabs = { units: $("tabUnits"), res: $("tabRes") };
+    const panes = { units: $("paneUnits"), res: $("paneRes"), rep: $("paneRep") };
+    const tabs = { units: $("tabUnits"), res: $("tabRes"), rep: $("tabRep") };
     const loaded = {};
     function show(k) {
       Object.keys(panes).forEach((x) => { panes[x].hidden = x !== k; tabs[x].classList.toggle("on", x === k); });
-      if (!loaded[k]) { loaded[k] = true; (k === "units" ? initUnits : initRes)(); }
+      if (!loaded[k]) { loaded[k] = true; ({ units: initUnits, res: initRes, rep: initRep })[k](); }
     }
     tabs.units.addEventListener("click", () => show("units"));
     tabs.res.addEventListener("click", () => show("res"));
+    tabs.rep.addEventListener("click", () => show("rep"));
 
     // ---------- curriculum units ----------
     async function loadUnits() {
@@ -226,6 +237,28 @@
           "result-slip-" + cur.y.replace("/", "-") + "-sem" + cur.s + ".pdf");
       } catch (e) { say($("rsMsg"), e.message); }
       finally { b.disabled = false; b.textContent = "Download PDF"; }
+    });
+
+    // ---------- school reporting ----------
+    async function loadRep() {
+      const out = $("repOut"); out.textContent = ""; say($("repMsg"), "");
+      try {
+        const d = await portal.api("/student/reporting");
+        if (!d.reports.length) { say($("repMsg"), "You have not reported for any semester yet."); return; }
+        out.appendChild(table(["Semester", "Date Reported", "Type"],
+          d.reports.map((r) => [
+            "SEMESTER " + r.semester + " " + r.academic_year,
+            new Date(r.reported_at).toLocaleString("en-US").replace(",", ""),
+            r.report_type
+          ]), []));
+      } catch (e) { say($("repMsg"), e.message); }
+    }
+    function initRep() { loadRep(); }
+    $("repBtn").addEventListener("click", async () => {
+      const b = $("repBtn"); b.disabled = true;
+      try { await portal.api("/student/reporting", { method: "POST" }); await loadRep(); }
+      catch (e) { say($("repMsg"), e.message); }
+      finally { b.disabled = false; }
     });
   </script>
 </body>

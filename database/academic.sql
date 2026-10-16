@@ -37,3 +37,15 @@ create table if not exists semester_reports (
   unique (student_id, academic_year, semester)
 );
 alter table semester_reports enable row level security;
+
+-- Semester reporting (added Oct 2026)
+create table if not exists semester_reports (
+  id uuid primary key default gen_random_uuid(),
+  student_id uuid references students(id) on delete cascade,
+  academic_year text not null,
+  semester int not null,
+  report_type text not null default 'Reported Online',
+  reported_at timestamptz not null default now(),
+  unique (student_id, academic_year, semester)
+);
+alter table semester_reports enable row level security;

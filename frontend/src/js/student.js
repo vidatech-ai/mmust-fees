@@ -20,7 +20,7 @@
     .page-grid{min-height:calc(100vh - 76px)}
     .chat-wrap{height:calc(100vh - 76px)}
     .site-note{padding:14px 20px;text-align:center;font-size:12.5px;color:#55607a;background:#fff;border-top:1px solid #dfe3ee;margin:0}
-    @media (max-width:900px){.top-brand{width:auto;padding:0 6px 0 12px}.top-brand img{height:46px!important}.top-school{font-size:17px;white-space:normal;margin:0 8px}}
+    @media (max-width:900px){.top-brand{width:auto;padding:0 6px 0 12px}.top-brand img{height:46px!important}.top-school{font-size:clamp(12px,3.6vw,17px);line-height:1.15;white-space:normal;margin:0 8px;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden}}
   `;
   const styleEl = document.createElement("style");
   styleEl.textContent = shellCss;
