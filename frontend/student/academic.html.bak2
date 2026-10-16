@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Academic</title>
+  <link rel="icon" href="../assets/logo.jpg">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../src/css/student.css">
+  <link rel="stylesheet" href="../src/css/medium.css?v=9">
+  <link rel="stylesheet" href="../src/css/timetable.css?v=1">
+  <link rel="stylesheet" href="../src/css/academic.css?v=2">
+</head>
+<body data-page="academic">
+  <div id="content" class="left-col tt-wrap">
+    <div class="crumb">Academic</div>
+    <p id="acErr" class="tt-err" hidden></p>
+
+    <div class="ac-tabs">
+      <button type="button" id="tabUnits" class="ac-tab">Curriculum Units</button>
+      <button type="button" id="tabRes" class="ac-tab">Results Transcript</button>
+    </div>
+
+    <section id="paneUnits" hidden>
+      <h3 class="tt-h">Curriculum Units</h3>
+      <div class="ac-bar">
+        <select id="cuYear" aria-label="Academic year"></select>
+        <select id="cuSem" aria-label="Semester"></select>
+      </div>
+      <p id="cuMsg" class="ac-empty" hidden></p>
+      <div id="cuOut"></div>
+    </section>
+
+    <section id="paneRes" hidden>
+      <h3 class="tt-h">Results Transcript</h3>
+      <div class="ac-bar">
+        <select id="rsYear" aria-label="Academic year"></select>
+        <select id="rsSem" aria-label="Semester"></select>
+        <button type="button" id="rsGo" class="fm-save" disabled>Generate</button>
+      </div>
+      <p id="rsMsg" class="ac-empty" hidden></p>
+      <div id="rsOut"></div>
+      <div class="ac-bar" id="rsDl" hidden>
+        <button type="button" id="rsPdf" class="fm-save green">Download PDF</button>
+      </div>
+    </section>
+  </div>
+
+  <script src="../src/js/config.js"></script>
+  <script src="../src/js/student.js"></script>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const h = (tag, cls, text) => {
+      const e = document.createElement(tag);
+      if (cls) e.className = cls;
+      if (text !== undefined && text !== null) e.textContent = text;
+      return e;
+    };
+    function table(headers, rows, numCols) {
+      const wrap = h("div", "ac-wrap"), t = h("table", "ac-table");
+      const tr = h("tr");
+      headers.forEach((x, i) => tr.appendChild(h("th", numCols.includes(i) ? "num" : "", x)));
+      t.appendChild(h("thead")).appendChild(tr);
+      const body = h("tbody");
+      rows.forEach((r) => {
+        const row = h("tr");
+        r.forEach((c, i) => row.appendChild(h("td", numCols.includes(i) ? "num" : "", c)));
+        body.appendChild(row);
+      });
+      t.appendChild(body);
+      wrap.appendChild(t);
+      return wrap;
+    }
+    const cell = (v) => (v === null || v === undefined || v === "" ? "-" : v);
+    const say = (el, t) => { el.textContent = t || ""; el.hidden = !t; };
+    const qs = (y, s) => "academic_year=" + encodeURIComponent(y) + "&semester=" + encodeURIComponent(s);
+
+    // fills the year dropdown, and the semester dropdown for the chosen year
+    function setupPicker(yr, sm, opts, onChange) {
+      yr.textContent = "";
+      [...new Set(opts.map((o) => o.academic_year))].forEach((y) => yr.appendChild(h("option", "", y)));
+      function fill() {
+        sm.textContent = "";
+        [...new Set(opts.filter((o) => o.academic_year === yr.value).map((o) => o.semester))]
+          .sort((a, b) => a - b)
+          .forEach((n) => { const e = h("option", "", "Semester " + n); e.value = n; sm.appendChild(e); });
+      }
+      fill();
+      yr.addEventListener("change", () => { fill(); onChange(); });
+      sm.addEventListener("change", onChange);
+    }
+
+    // ---------- tabs ----------
+    const panes = { units: $("paneUnits"), res: $("paneRes") };
+    const tabs = { units: $("tabUnits"), res: $("tabRes") };
+    const loaded = {};
+    function show(k) {
+      Object.keys(panes).forEach((x) => { panes[x].hidden = x !== k; tabs[x].classList.toggle("on", x === k); });
+      if (!loaded[k]) { loaded[k] = true; (k === "units" ? initUnits : initRes)(); }
+    }
+    tabs.units.addEventListener("click", () => show("units"));
+    tabs.res.addEventListener("click", () => show("res"));
+
+    // ---------- curriculum units ----------
+    async function loadUnits() {
+      const out = $("cuOut");
+      out.textContent = ""; say($("cuMsg"), "");
+      try {
+        const d = await portal.api("/student/curriculum?" + qs($("cuYear").value, $("cuSem").value));
+        if (!d.units.length) { say($("cuMsg"), "No units have been posted for this semester."); return; }
+        const byYear = {};
+        d.units.forEach((u) => { (byYear[u.year_of_study] = byYear[u.year_of_study] || []).push(u); });
+        Object.keys(byYear).sort((a, b) => a - b).forEach((y) => {
+          let total = 0;
+          const rows = byYear[y].map((u) => {
+            if (u.credit_hours) total += Number(u.credit_hours);
+            return [cell(u.unit_code), u.unit_name, cell(u.credit_hours)];
+          });
+          out.appendChild(h("h4", "ac-group", "Year " + y));
+          out.appendChild(table(["Code", "Unit", "Credit hours"], rows, [2]));
+          if (total) out.appendChild(h("p", "ac-empty", "Total credit hours: " + total));
+        });
+      } catch (e) { say($("cuMsg"), e.message); }
+    }
+    async function initUnits() {
+      try {
+        const d = await portal.api("/student/curriculum/options");
+        if (!d.options.length) { say($("cuMsg"), "No units have been posted yet."); return; }
+        setupPicker($("cuYear"), $("cuSem"), d.options, loadUnits);
+        loadUnits();
+      } catch (e) { say($("cuMsg"), e.message); }
+    }
+
+    // ---------- results transcript ----------
+    let cur = null;
+    function clearRes() {
+      $("rsOut").textContent = ""; $("rsDl").hidden = true; say($("rsMsg"), ""); cur = null;
+    }
+    async function initRes() {
+      try {
+        const d = await portal.api("/student/result-slip/options");
+        if (!d.options.length) { say($("rsMsg"), "No results have been posted to your account yet."); return; }
+        setupPicker($("rsYear"), $("rsSem"), d.options, clearRes);
+        $("rsGo").disabled = false;
+      } catch (e) { say($("rsMsg"), e.message); }
+    }
+    $("rsGo").addEventListener("click", async () => {
+      const go = $("rsGo");
+      go.disabled = true; go.textContent = "Generating..."; clearRes();
+      try {
+        const y = $("rsYear").value, s = $("rsSem").value;
+        const d = await portal.api("/student/result-slip/data?" + qs(y, s));
+        cur = { y: y, s: s };
+        $("rsOut").appendChild(h("h4", "ac-group", "Year " + d.year_of_study + " - Semester " + d.semester + " - " + d.academic_year));
+        $("rsOut").appendChild(table(["Code", "Unit", "Hours", "Marks", "Grade"],
+          d.units.map((u) => [cell(u.code), u.title, cell(u.hours), cell(u.marks), cell(u.grade)]), [2, 3, 4]));
+        $("rsDl").hidden = false;
+      } catch (e) { say($("rsMsg"), e.message); }
+      finally { go.disabled = false; go.textContent = "Generate"; }
+    });
+    $("rsPdf").addEventListener("click", async () => {
+      if (!cur) return;
+      const b = $("rsPdf");
+      b.disabled = true; b.textContent = "Preparing...";
+      try {
+        await portal.download("/student/result-slip?" + qs(cur.y, cur.s),
+          "result-slip-" + cur.y.replace("/", "-") + "-sem" + cur.s + ".pdf");
+      } catch (e) { say($("rsMsg"), e.message); }
+      finally { b.disabled = false; b.textContent = "Download PDF"; }
+    });
+  </script>
+</body>
+</html>
